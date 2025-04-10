@@ -30,9 +30,11 @@ const Index = () => {
             Optimizado para mantener tus relaciones profesionales organizadas.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
-            <Button size="lg" className="text-lg py-6">
-              Comenzar ahora <ArrowRight className="ml-2" />
-            </Button>
+            <Link to="/auth">
+              <Button size="lg" className="text-lg py-6">
+                Comenzar ahora <ArrowRight className="ml-2" />
+              </Button>
+            </Link>
             <Button size="lg" variant="outline" className="text-lg py-6">
               Ver demostración
             </Button>
@@ -172,7 +174,7 @@ const Index = () => {
             Une tus contactos, tareas y comunicaciones en una sola plataforma potente y fácil de usar.
           </p>
           
-          <Link to="/app">
+          <Link to="/auth">
             <Button size="lg" variant="secondary" className="text-lg py-6">
               Comenzar ahora <ArrowRight className="ml-2" />
             </Button>

@@ -1,359 +1,339 @@
-import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
-import { Contact, Task, TaskStatus, TaskPriority, Note, ContactStatus } from '../types';
-import { supabase } from '../integrations/supabase/client';
-import { useToast } from "@/components/ui/use-toast";
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { v4 as uuidv4 } from "uuid";
+import { sample } from "../data/sampleData";
+import { Contact, Task, Note, TaskStatus, TaskPriority, ContactStatus } from "../types";
 
-interface CrmContextType {
+type CrmContextType = {
   contacts: Contact[];
   tasks: Task[];
   notes: Note[];
   activeContactId: string | null;
-  setActiveContactId: (id: string | null) => void;
-  addTask: (task: Omit<Task, 'id' | 'createdAt'>) => Promise<void>;
-  updateTaskStatus: (taskId: string, status: TaskStatus) => Promise<void>;
-  getContactById: (contactId: string) => Contact | undefined;
-  getTasksForContact: (contactId: string) => Task[];
-  getNotesForContact: (contactId: string) => Note[];
-  addNote: (note: Omit<Note, 'id' | 'createdAt'>) => Promise<void>;
-  addContact: (contact: Omit<Contact, 'id' | 'createdAt' | 'lastActivity'>) => Promise<void>;
   isLoading: boolean;
-}
+  isAuthenticated: boolean;
+  currentUser: { id: string; name: string; email: string } | null;
+  
+  // Contact actions
+  setActiveContactId: (id: string) => void;
+  addContact: (contact: Omit<Contact, "id" | "lastActivity">) => Promise<void>;
+  getContactById: (id: string) => Contact | undefined;
+  
+  // Task actions
+  addTask: (task: Omit<Task, "id" | "createdAt" | "completedAt">) => void;
+  completeTask: (taskId: string) => void;
+  reopenTask: (taskId: string) => void;
+  getTasksForContact: (contactId: string) => Task[];
+  
+  // Note actions
+  addNote: (note: Omit<Note, "id" | "createdAt">) => Promise<void>;
+  getNotesForContact: (contactId: string) => Note[];
+  
+  // Auth actions
+  login: (email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string) => Promise<void>;
+  logout: () => void;
+};
 
 const CrmContext = createContext<CrmContextType | undefined>(undefined);
 
-export const useCrm = () => {
-  const context = useContext(CrmContext);
-  if (!context) {
-    throw new Error('useCrm must be used within a CrmProvider');
-  }
-  return context;
-};
-
-interface CrmProviderProps {
-  children: ReactNode;
-}
-
-export const CrmProvider = ({ children }: CrmProviderProps) => {
+export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
   const [activeContactId, setActiveContactId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ id: string; name: string; email: string } | null>(null);
 
   useEffect(() => {
-    const loadInitialData = async () => {
+    // Check if user is logged in from localStorage
+    const userData = localStorage.getItem('crm_user');
+    if (userData) {
       try {
-        setIsLoading(true);
-
-        const { data: contactsData, error: contactsError } = await supabase
-          .from('contacts')
-          .select('*')
-          .order('last_activity', { ascending: false });
-
-        if (contactsError) throw contactsError;
-
-        const formattedContacts = contactsData.map(contact => ({
-          id: contact.id,
-          name: contact.name,
-          email: contact.email,
-          phone: contact.phone || undefined,
-          company: contact.company || undefined,
-          avatar: contact.avatar_url || undefined,
-          status: contact.status as ContactStatus,
-          lastActivity: contact.last_activity ? new Date(contact.last_activity) : undefined,
-          tags: contact.tags || []
-        }));
-
-        const { data: tasksData, error: tasksError } = await supabase
-          .from('tasks')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (tasksError) throw tasksError;
-
-        const formattedTasks = tasksData.map(task => ({
-          id: task.id,
-          contactId: task.contact_id,
-          title: task.title,
-          description: task.description || undefined,
-          status: task.status as TaskStatus,
-          priority: task.priority as TaskPriority,
-          createdAt: new Date(task.created_at),
-          dueDate: task.due_date ? new Date(task.due_date) : undefined,
-          completedAt: task.completed_at ? new Date(task.completed_at) : undefined,
-        }));
-
-        const { data: notesData, error: notesError } = await supabase
-          .from('notes')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (notesError) throw notesError;
-
-        const formattedNotes = notesData.map(note => ({
-          id: note.id,
-          contactId: note.contact_id,
-          content: note.content,
-          createdAt: new Date(note.created_at),
-        }));
-
-        setContacts(formattedContacts);
-        setTasks(formattedTasks);
-        setNotes(formattedNotes);
-
-        if (formattedContacts.length > 0 && !activeContactId) {
-          setActiveContactId(formattedContacts[0].id);
-        }
-      } catch (error) {
-        console.error('Error loading data:', error);
-        toast({
-          title: "Error",
-          description: "No se pudieron cargar los datos. Inténtalo de nuevo.",
-          variant: "destructive"
-        });
-      } finally {
-        setIsLoading(false);
+        const user = JSON.parse(userData);
+        setCurrentUser(user);
+        setIsAuthenticated(true);
+        loadUserData(user.id);
+      } catch (e) {
+        console.error("Error parsing user data:", e);
+        localStorage.removeItem('crm_user');
       }
-    };
-
-    loadInitialData();
+    } else {
+      // Load sample data for demo if not logged in
+      setContacts(sample.contacts);
+      setTasks(sample.tasks);
+      setNotes(sample.notes);
+      setIsLoading(false);
+    }
   }, []);
 
-  const getContactById = (contactId: string) => {
-    return contacts.find(contact => contact.id === contactId);
+  // Load user data from localStorage
+  const loadUserData = (userId: string) => {
+    setIsLoading(true);
+    
+    try {
+      const userContacts = localStorage.getItem(`crm_contacts_${userId}`);
+      const userTasks = localStorage.getItem(`crm_tasks_${userId}`);
+      const userNotes = localStorage.getItem(`crm_notes_${userId}`);
+      
+      setContacts(userContacts ? JSON.parse(userContacts) : []);
+      setTasks(userTasks ? JSON.parse(userTasks) : []);
+      setNotes(userNotes ? JSON.parse(userNotes) : []);
+    } catch (e) {
+      console.error("Error loading user data:", e);
+      // Fallback to sample data
+      setContacts(sample.contacts);
+      setTasks(sample.tasks);
+      setNotes(sample.notes);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Save user data to localStorage
+  const saveUserData = () => {
+    if (!currentUser) return;
+    
+    localStorage.setItem(`crm_contacts_${currentUser.id}`, JSON.stringify(contacts));
+    localStorage.setItem(`crm_tasks_${currentUser.id}`, JSON.stringify(tasks));
+    localStorage.setItem(`crm_notes_${currentUser.id}`, JSON.stringify(notes));
+  };
+
+  // Auth functions
+  const login = async (email: string, password: string): Promise<void> => {
+    setIsLoading(true);
+    
+    // This is a mock login for demonstration purposes
+    // In a real app, this would validate against a backend
+    try {
+      // Check if user exists in localStorage
+      const usersData = localStorage.getItem('crm_users');
+      const users = usersData ? JSON.parse(usersData) : [];
+      
+      const user = users.find((u: any) => u.email === email);
+      
+      if (!user) {
+        throw new Error("Usuario no encontrado");
+      }
+      
+      if (user.password !== password) {
+        throw new Error("Contraseña incorrecta");
+      }
+      
+      // Remove password from user data before storing in state
+      const { password: _, ...safeUser } = user;
+      
+      setCurrentUser(safeUser);
+      setIsAuthenticated(true);
+      localStorage.setItem('crm_user', JSON.stringify(safeUser));
+      
+      // Load user data
+      loadUserData(safeUser.id);
+    } catch (error) {
+      setIsLoading(false);
+      throw error;
+    }
+  };
+
+  const register = async (name: string, email: string, password: string): Promise<void> => {
+    setIsLoading(true);
+    
+    try {
+      // Get existing users or create empty array
+      const usersData = localStorage.getItem('crm_users');
+      const users = usersData ? JSON.parse(usersData) : [];
+      
+      // Check if email already exists
+      if (users.some((u: any) => u.email === email)) {
+        throw new Error("El email ya está registrado");
+      }
+      
+      // Create new user
+      const newUser = {
+        id: uuidv4(),
+        name,
+        email,
+        password, // In a real app, this would be hashed
+        createdAt: new Date()
+      };
+      
+      // Add to users and save
+      users.push(newUser);
+      localStorage.setItem('crm_users', JSON.stringify(users));
+      
+      // Remove password from user data before storing in state
+      const { password: _, ...safeUser } = newUser;
+      
+      // Set as logged in
+      setCurrentUser(safeUser);
+      setIsAuthenticated(true);
+      localStorage.setItem('crm_user', JSON.stringify(safeUser));
+      
+      // Initialize empty data for new user
+      setContacts([]);
+      setTasks([]);
+      setNotes([]);
+      setIsLoading(false);
+      
+      // Save empty initial data
+      saveUserData();
+    } catch (error) {
+      setIsLoading(false);
+      throw error;
+    }
+  };
+
+  const logout = () => {
+    setCurrentUser(null);
+    setIsAuthenticated(false);
+    localStorage.removeItem('crm_user');
+    
+    // Reload sample data for demo
+    setContacts(sample.contacts);
+    setTasks(sample.tasks);
+    setNotes(sample.notes);
+  };
+
+  // Save data when it changes and user is authenticated
+  useEffect(() => {
+    if (isAuthenticated && !isLoading && currentUser) {
+      saveUserData();
+    }
+  }, [contacts, tasks, notes, isAuthenticated, currentUser]);
+
+  const getContactById = (id: string) => {
+    return contacts.find(contact => contact.id === id);
+  };
+
+  const addContact = async (contact: Omit<Contact, "id" | "lastActivity">) => {
+    const newContact: Contact = {
+      id: uuidv4(),
+      lastActivity: new Date(),
+      ...contact
+    };
+    setContacts([...contacts, newContact]);
+    if (contacts.length === 0) {
+      setActiveContactId(newContact.id);
+    }
   };
 
   const getTasksForContact = (contactId: string) => {
-    return tasks
-      .filter(task => task.contactId === contactId)
-      .sort((a, b) => {
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      });
+    return tasks.filter(task => task.contactId === contactId);
+  };
+
+  const addTask = (task: Omit<Task, "id" | "createdAt" | "completedAt">) => {
+    const newTask: Task = {
+      id: uuidv4(),
+      createdAt: new Date(),
+      completedAt: undefined,
+      ...task
+    };
+    setTasks([...tasks, newTask]);
+
+    // Update contact's last activity
+    setContacts(
+      contacts.map(contact => 
+        contact.id === task.contactId 
+          ? { ...contact, lastActivity: new Date() } 
+          : contact
+      )
+    );
+  };
+
+  const completeTask = (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    setTasks(
+      tasks.map(t => 
+        t.id === taskId 
+          ? { ...t, status: "completed" as TaskStatus, completedAt: new Date() } 
+          : t
+      )
+    );
+
+    // Update contact's last activity
+    setContacts(
+      contacts.map(contact => 
+        contact.id === task.contactId 
+          ? { ...contact, lastActivity: new Date() } 
+          : contact
+      )
+    );
+  };
+
+  const reopenTask = (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    setTasks(
+      tasks.map(t => 
+        t.id === taskId 
+          ? { ...t, status: "waiting" as TaskStatus, completedAt: undefined } 
+          : t
+      )
+    );
+
+    // Update contact's last activity
+    setContacts(
+      contacts.map(contact => 
+        contact.id === task.contactId 
+          ? { ...contact, lastActivity: new Date() } 
+          : contact
+      )
+    );
   };
 
   const getNotesForContact = (contactId: string) => {
-    return notes
-      .filter(note => note.contactId === contactId)
-      .sort((a, b) => {
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      });
+    return notes.filter(note => note.contactId === contactId);
   };
 
-  const addTask = async (task: Omit<Task, 'id' | 'createdAt'>) => {
-    try {
-      const newTaskData = {
-        contact_id: task.contactId,
-        title: task.title,
-        description: task.description || null,
-        status: task.status,
-        priority: task.priority,
-        due_date: task.dueDate ? task.dueDate.toISOString() : null,
-      };
+  const addNote = async (note: Omit<Note, "id" | "createdAt">) => {
+    const newNote: Note = {
+      id: uuidv4(),
+      createdAt: new Date(),
+      ...note
+    };
+    setNotes([...notes, newNote]);
 
-      const { data, error } = await supabase
-        .from('tasks')
-        .insert(newTaskData)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      const newTask: Task = {
-        id: data.id,
-        contactId: data.contact_id,
-        title: data.title,
-        description: data.description || undefined,
-        status: data.status as TaskStatus,
-        priority: data.priority as TaskPriority,
-        createdAt: new Date(data.created_at),
-        dueDate: data.due_date ? new Date(data.due_date) : undefined,
-        completedAt: data.completed_at ? new Date(data.completed_at) : undefined,
-      };
-
-      setTasks([newTask, ...tasks]);
-    
-      const now = new Date();
-      await supabase
-        .from('contacts')
-        .update({ last_activity: now.toISOString() })
-        .eq('id', task.contactId);
-
-      setContacts(contacts.map(contact => 
-        contact.id === task.contactId 
-          ? { ...contact, lastActivity: now }
-          : contact
-      ));
-
-      toast({
-        title: "Tarea creada",
-        description: "La tarea se ha añadido con éxito",
-      });
-    } catch (error) {
-      console.error('Error adding task:', error);
-      toast({
-        title: "Error",
-        description: "No se pudo crear la tarea. Inténtalo de nuevo.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const updateTaskStatus = async (taskId: string, status: TaskStatus) => {
-    try {
-      const updatedData: Record<string, any> = { status };
-      
-      if (status === 'done') {
-        updatedData.completed_at = new Date().toISOString();
-      }
-      
-      const { error } = await supabase
-        .from('tasks')
-        .update(updatedData)
-        .eq('id', taskId);
-
-      if (error) throw error;
-
-      setTasks(tasks.map(task => 
-        task.id === taskId
-          ? { 
-              ...task, 
-              status,
-              completedAt: status === 'done' ? new Date() : task.completedAt 
-            }
-          : task
-      ));
-
-      toast({
-        title: "Tarea actualizada",
-        description: `La tarea se ha ${status === 'done' ? 'completado' : 'actualizado'} con éxito`,
-      });
-    } catch (error) {
-      console.error('Error updating task:', error);
-      toast({
-        title: "Error",
-        description: "No se pudo actualizar la tarea. Inténtalo de nuevo.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const addNote = async (note: Omit<Note, 'id' | 'createdAt'>) => {
-    try {
-      const newNoteData = {
-        contact_id: note.contactId,
-        content: note.content,
-      };
-
-      const { data, error } = await supabase
-        .from('notes')
-        .insert(newNoteData)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      const newNote: Note = {
-        id: data.id,
-        contactId: data.contact_id,
-        content: data.content,
-        createdAt: new Date(data.created_at)
-      };
-
-      setNotes([newNote, ...notes]);
-
-      const now = new Date();
-      await supabase
-        .from('contacts')
-        .update({ last_activity: now.toISOString() })
-        .eq('id', note.contactId);
-
-      setContacts(contacts.map(contact => 
+    // Update contact's last activity
+    setContacts(
+      contacts.map(contact => 
         contact.id === note.contactId 
-          ? { ...contact, lastActivity: now }
+          ? { ...contact, lastActivity: new Date() } 
           : contact
-      ));
-
-      toast({
-        title: "Nota añadida",
-        description: "La nota se ha guardado con éxito",
-      });
-    } catch (error) {
-      console.error('Error adding note:', error);
-      toast({
-        title: "Error",
-        description: "No se pudo guardar la nota. Inténtalo de nuevo.",
-        variant: "destructive"
-      });
-    }
-  };
-  
-  const addContact = async (contact: Omit<Contact, 'id' | 'createdAt' | 'lastActivity'>) => {
-    try {
-      const newContactData = {
-        name: contact.name,
-        email: contact.email,
-        phone: contact.phone || null,
-        company: contact.company || null,
-        avatar_url: contact.avatar || null,
-        status: contact.status,
-        tags: contact.tags || [],
-      };
-
-      const { data, error } = await supabase
-        .from('contacts')
-        .insert(newContactData)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      const newContact: Contact = {
-        id: data.id,
-        name: data.name,
-        email: data.email,
-        phone: data.phone || undefined,
-        company: data.company || undefined,
-        avatar: data.avatar_url || undefined,
-        status: data.status as ContactStatus,
-        lastActivity: data.last_activity ? new Date(data.last_activity) : new Date(),
-        tags: data.tags || []
-      };
-
-      setContacts([newContact, ...contacts]);
-      setActiveContactId(newContact.id);
-
-      toast({
-        title: "Contacto creado",
-        description: "El contacto se ha añadido con éxito",
-      });
-    } catch (error) {
-      console.error('Error adding contact:', error);
-      toast({
-        title: "Error",
-        description: "No se pudo crear el contacto. Inténtalo de nuevo.",
-        variant: "destructive"
-      });
-    }
+      )
+    );
   };
 
-  return (
-    <CrmContext.Provider value={{
-      contacts,
-      tasks,
-      notes,
-      activeContactId,
-      setActiveContactId,
-      addTask,
-      updateTaskStatus,
-      getContactById,
-      getTasksForContact,
-      getNotesForContact,
-      addNote,
-      addContact,
-      isLoading
-    }}>
-      {children}
-    </CrmContext.Provider>
-  );
+  const value: CrmContextType = {
+    contacts,
+    tasks,
+    notes,
+    activeContactId,
+    isLoading,
+    isAuthenticated,
+    currentUser,
+    setActiveContactId,
+    addContact,
+    getContactById,
+    addTask,
+    completeTask,
+    reopenTask,
+    getTasksForContact,
+    addNote,
+    getNotesForContact,
+    login,
+    register,
+    logout
+  };
+
+  return <CrmContext.Provider value={value}>{children}</CrmContext.Provider>;
+};
+
+export const useCrm = () => {
+  const context = useContext(CrmContext);
+  if (context === undefined) {
+    throw new Error("useCrm must be used within a CrmProvider");
+  }
+  return context;
 };
