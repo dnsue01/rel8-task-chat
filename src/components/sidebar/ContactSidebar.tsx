@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from "date-fns";
 import NewContactForm from "../contacts/NewContactForm";
-import  es  from "date-fns/locale";
+import  es  from "date-fns/locale/es";
 
 const ContactSidebar: React.FC = () => {
   const { contacts, activeContactId, setActiveContactId } = useCrm();
