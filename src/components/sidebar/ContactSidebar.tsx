@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useCrm } from "../../context/CrmContext";
 import { Contact } from "../../types";
@@ -7,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from "date-fns";
 import NewContactForm from "../contacts/NewContactForm";
-import { es } from "date-fns/locale/es";
+import { es } from "date-fns/locale";
 
 const ContactSidebar: React.FC = () => {
   const { contacts, activeContactId, setActiveContactId } = useCrm();

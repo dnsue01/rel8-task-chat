@@ -7,7 +7,7 @@ import AddNoteForm from "./AddNoteForm";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Phone, Mail, Building2, Tag, MessageSquare, FileText, Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { es } from "date-fns/locale/es";
+import { es } from "date-fns/locale";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const ContactDetail: React.FC = () => {
