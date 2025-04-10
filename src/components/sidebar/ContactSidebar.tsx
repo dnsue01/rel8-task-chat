@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useCrm } from "../../context/CrmContext";
 import { Contact } from "../../types";
@@ -14,7 +13,6 @@ const ContactSidebar: React.FC = () => {
   const { contacts, activeContactId, setActiveContactId } = useCrm();
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Get initials from name for avatar fallback
   const getInitials = (name: string): string => {
     return name
       .split(" ")
@@ -32,14 +30,12 @@ const ContactSidebar: React.FC = () => {
     return formatDistanceToNow(date, { addSuffix: true, locale: es });
   };
 
-  // Filter contacts based on search query
   const filteredContacts = contacts.filter(contact => 
     contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (contact.email && contact.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (contact.company && contact.company.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  // Sort contacts by last activity, most recent first
   const sortedContacts = [...filteredContacts].sort((a, b) => {
     if (!a.lastActivity) return 1;
     if (!b.lastActivity) return -1;
@@ -48,13 +44,11 @@ const ContactSidebar: React.FC = () => {
 
   return (
     <div className="w-80 h-full flex flex-col bg-white border-r">
-      {/* Header */}
       <div className="p-4 border-b">
         <h2 className="text-xl font-bold text-gray-800">Contactos</h2>
         <p className="text-sm text-gray-500">Gestiona tus relaciones</p>
       </div>
 
-      {/* Search */}
       <div className="p-4 border-b">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
@@ -67,7 +61,6 @@ const ContactSidebar: React.FC = () => {
         </div>
       </div>
 
-      {/* Contact List */}
       <div className="flex-1 overflow-y-auto">
         {sortedContacts.length === 0 && (
           <div className="p-4 text-center text-gray-500">
@@ -110,7 +103,6 @@ const ContactSidebar: React.FC = () => {
         ))}
       </div>
 
-      {/* Add Contact Button */}
       <div className="p-4 border-t">
         <NewContactForm />
       </div>

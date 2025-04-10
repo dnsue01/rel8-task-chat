@@ -1,8 +1,7 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
-import { Contact, Task, TaskStatus, TaskPriority, Note } from '../types';
+import { Contact, Task, TaskStatus, TaskPriority, Note, ContactStatus } from '../types';
 import { supabase } from '../integrations/supabase/client';
 import { useToast } from "@/components/ui/use-toast";
-import { v4 as uuidv4 } from 'uuid';
 
 interface CrmContextType {
   contacts: Contact[];
@@ -61,7 +60,7 @@ export const CrmProvider = ({ children }: CrmProviderProps) => {
           phone: contact.phone || undefined,
           company: contact.company || undefined,
           avatar: contact.avatar_url || undefined,
-          status: contact.status as Contact['status'],
+          status: contact.status as ContactStatus,
           lastActivity: contact.last_activity ? new Date(contact.last_activity) : undefined,
           tags: contact.tags || []
         }));
@@ -165,8 +164,8 @@ export const CrmProvider = ({ children }: CrmProviderProps) => {
         contactId: data.contact_id,
         title: data.title,
         description: data.description || undefined,
-        status: data.status,
-        priority: data.priority,
+        status: data.status as TaskStatus,
+        priority: data.priority as TaskPriority,
         createdAt: new Date(data.created_at),
         dueDate: data.due_date ? new Date(data.due_date) : undefined,
         completedAt: data.completed_at ? new Date(data.completed_at) : undefined,
@@ -316,7 +315,7 @@ export const CrmProvider = ({ children }: CrmProviderProps) => {
         phone: data.phone || undefined,
         company: data.company || undefined,
         avatar: data.avatar_url || undefined,
-        status: data.status,
+        status: data.status as ContactStatus,
         lastActivity: data.last_activity ? new Date(data.last_activity) : new Date(),
         tags: data.tags || []
       };
