@@ -6,6 +6,7 @@ import ContactSidebar from "../components/sidebar/ContactSidebar";
 import { CrmProvider } from "../context/CrmContext";
 import { Loader2 } from "lucide-react";
 import { useCrm } from "../context/CrmContext";
+import { Toaster } from "@/components/ui/toaster";
 
 // Componente de carga
 const LoadingState = () => (
@@ -41,6 +42,7 @@ const CrmApp = () => {
     <CrmProvider>
       <Layout>
         <CrmContent />
+        <Toaster />
       </Layout>
     </CrmProvider>
   );
