@@ -1,6 +1,5 @@
-
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
-import { Contact, Task, TaskStatus, Note } from '../types';
+import { Contact, Task, TaskStatus, TaskPriority, Note } from '../types';
 import { supabase } from '../integrations/supabase/client';
 import { useToast } from "@/components/ui/use-toast";
 import { v4 as uuidv4 } from 'uuid';
@@ -43,13 +42,11 @@ export const CrmProvider = ({ children }: CrmProviderProps) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const { toast } = useToast();
 
-  // Cargar datos iniciales desde Supabase
   useEffect(() => {
     const loadInitialData = async () => {
       try {
         setIsLoading(true);
 
-        // Cargar contactos
         const { data: contactsData, error: contactsError } = await supabase
           .from('contacts')
           .select('*')
@@ -57,7 +54,6 @@ export const CrmProvider = ({ children }: CrmProviderProps) => {
 
         if (contactsError) throw contactsError;
 
-        // Transformar datos para que coincidan con nuestros tipos
         const formattedContacts = contactsData.map(contact => ({
           id: contact.id,
           name: contact.name,
@@ -70,7 +66,6 @@ export const CrmProvider = ({ children }: CrmProviderProps) => {
           tags: contact.tags || []
         }));
 
-        // Cargar tareas
         const { data: tasksData, error: tasksError } = await supabase
           .from('tasks')
           .select('*')
@@ -78,20 +73,18 @@ export const CrmProvider = ({ children }: CrmProviderProps) => {
 
         if (tasksError) throw tasksError;
 
-        // Transformar datos de tareas
         const formattedTasks = tasksData.map(task => ({
           id: task.id,
           contactId: task.contact_id,
           title: task.title,
           description: task.description || undefined,
           status: task.status as TaskStatus,
-          priority: task.priority as Task['priority'],
+          priority: task.priority as TaskPriority,
           createdAt: new Date(task.created_at),
           dueDate: task.due_date ? new Date(task.due_date) : undefined,
           completedAt: task.completed_at ? new Date(task.completed_at) : undefined,
         }));
 
-        // Cargar notas
         const { data: notesData, error: notesError } = await supabase
           .from('notes')
           .select('*')
@@ -99,7 +92,6 @@ export const CrmProvider = ({ children }: CrmProviderProps) => {
 
         if (notesError) throw notesError;
 
-        // Transformar datos de notas
         const formattedNotes = notesData.map(note => ({
           id: note.id,
           contactId: note.contact_id,
@@ -111,7 +103,6 @@ export const CrmProvider = ({ children }: CrmProviderProps) => {
         setTasks(formattedTasks);
         setNotes(formattedNotes);
 
-        // Establecer el primer contacto como activo si hay contactos y no hay uno activo
         if (formattedContacts.length > 0 && !activeContactId) {
           setActiveContactId(formattedContacts[0].id);
         }
@@ -138,7 +129,6 @@ export const CrmProvider = ({ children }: CrmProviderProps) => {
     return tasks
       .filter(task => task.contactId === contactId)
       .sort((a, b) => {
-        // Ordenar por fecha de creación, más reciente primero
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
   };
@@ -147,7 +137,6 @@ export const CrmProvider = ({ children }: CrmProviderProps) => {
     return notes
       .filter(note => note.contactId === contactId)
       .sort((a, b) => {
-        // Ordenar por fecha de creación, más reciente primero
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
   };
@@ -171,7 +160,6 @@ export const CrmProvider = ({ children }: CrmProviderProps) => {
 
       if (error) throw error;
 
-      // Actualizar el estado local
       const newTask: Task = {
         id: data.id,
         contactId: data.contact_id,
@@ -186,14 +174,12 @@ export const CrmProvider = ({ children }: CrmProviderProps) => {
 
       setTasks([newTask, ...tasks]);
     
-      // Actualizar la última actividad del contacto
       const now = new Date();
       await supabase
         .from('contacts')
         .update({ last_activity: now.toISOString() })
         .eq('id', task.contactId);
 
-      // Actualizar el estado local del contacto
       setContacts(contacts.map(contact => 
         contact.id === task.contactId 
           ? { ...contact, lastActivity: now }
@@ -218,7 +204,6 @@ export const CrmProvider = ({ children }: CrmProviderProps) => {
     try {
       const updatedData: Record<string, any> = { status };
       
-      // Si está marcada como completada, añadir la fecha de completado
       if (status === 'done') {
         updatedData.completed_at = new Date().toISOString();
       }
@@ -230,7 +215,6 @@ export const CrmProvider = ({ children }: CrmProviderProps) => {
 
       if (error) throw error;
 
-      // Actualizar el estado local
       setTasks(tasks.map(task => 
         task.id === taskId
           ? { 
@@ -270,7 +254,6 @@ export const CrmProvider = ({ children }: CrmProviderProps) => {
 
       if (error) throw error;
 
-      // Actualizar el estado local
       const newNote: Note = {
         id: data.id,
         contactId: data.contact_id,
@@ -280,14 +263,12 @@ export const CrmProvider = ({ children }: CrmProviderProps) => {
 
       setNotes([newNote, ...notes]);
 
-      // Actualizar la última actividad del contacto
       const now = new Date();
       await supabase
         .from('contacts')
         .update({ last_activity: now.toISOString() })
         .eq('id', note.contactId);
 
-      // Actualizar el estado local del contacto
       setContacts(contacts.map(contact => 
         contact.id === note.contactId 
           ? { ...contact, lastActivity: now }
@@ -328,7 +309,6 @@ export const CrmProvider = ({ children }: CrmProviderProps) => {
 
       if (error) throw error;
 
-      // Actualizar el estado local
       const newContact: Contact = {
         id: data.id,
         name: data.name,
