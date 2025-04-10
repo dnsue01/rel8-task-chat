@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,6 +62,18 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				// Custom colors for our CRM
+				crm: {
+					purple: '#7C3AED',
+					indigo: '#4F46E5',
+					blue: '#3B82F6',
+					'light-blue': '#60A5FA',
+					'light-purple': '#A78BFA',
+					'task-waiting': '#FBBF24',
+					'task-in-progress': '#60A5FA',
+					'task-done': '#34D399',
+					'task-overdue': '#F87171',
 				}
 			},
 			borderRadius: {
