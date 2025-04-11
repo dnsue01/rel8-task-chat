@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useToast } from "@/components/ui/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,6 +12,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Note } from "@/types";
 
 interface IntegratedEvent {
   id: string;
@@ -30,6 +30,7 @@ interface IntegratedEvent {
     company?: string;
     photo_url?: string;
     google_id?: string;
+    notes?: Note[];
   } | null;
   accion: "vinculado" | "importado_al_crm" | null;
   event_data: any;
@@ -92,12 +93,10 @@ const GoogleIntegratedCalendar: React.FC = () => {
     }
   }, [isGoogleConnected]);
 
-  // Filter events based on the active tab
   const filteredEvents = activeTab === "all" 
     ? events 
     : events.filter(event => event.tipo.toLowerCase() === activeTab.toLowerCase());
 
-  // Group events by date for better display
   const groupedEvents = filteredEvents.reduce((acc, event) => {
     const eventDate = new Date(event.fecha);
     const dateKey = format(eventDate, 'yyyy-MM-dd');
@@ -110,7 +109,6 @@ const GoogleIntegratedCalendar: React.FC = () => {
     return acc;
   }, {} as Record<string, IntegratedEvent[]>);
 
-  // Sort dates for display
   const sortedDates = Object.keys(groupedEvents).sort((a, b) => 
     new Date(a).getTime() - new Date(b).getTime()
   );
@@ -146,7 +144,9 @@ const GoogleIntegratedCalendar: React.FC = () => {
         email: contact.email,
         phone: contact.phone || "",
         company: contact.company || "",
-        notes: `Importado automáticamente desde Google Contacts`
+        status: "lead",
+        tags: [],
+        notes: []
       });
       
       toast({
@@ -154,7 +154,6 @@ const GoogleIntegratedCalendar: React.FC = () => {
         description: `${contact.nombre} ha sido agregado a tus contactos del CRM`,
       });
       
-      // Refresh data
       fetchEvents();
     } catch (error) {
       console.error("Error importing contact:", error);
