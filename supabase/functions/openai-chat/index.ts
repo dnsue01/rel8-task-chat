@@ -69,7 +69,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini", // Using a more affordable model, can be upgraded to gpt-4o
+        model: "gpt-3.5-turbo", // Using a more affordable model, can be upgraded to gpt-4o
         messages: formattedMessages,
         temperature: 0.7,
         max_tokens: 800,
