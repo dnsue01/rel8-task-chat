@@ -101,19 +101,19 @@
   }
   
   .task-bubble-waiting {
-    @apply bg-amber-100 border-l-4 border-crm-task-waiting;
+    @apply bg-amber-100 border-l-4 border-amber-500;
   }
   
   .task-bubble-in-progress {
-    @apply bg-blue-100 border-l-4 border-crm-task-in-progress;
+    @apply bg-blue-100 border-l-4 border-blue-500;
   }
   
   .task-bubble-done {
-    @apply bg-green-100 border-l-4 border-crm-task-done;
+    @apply bg-green-100 border-l-4 border-green-500;
   }
   
   .task-bubble-overdue {
-    @apply bg-red-100 border-l-4 border-crm-task-overdue;
+    @apply bg-red-100 border-l-4 border-red-500;
   }
   
   .contact-item {
