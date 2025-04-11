@@ -21,11 +21,6 @@ const Auth: React.FC = () => {
   const navigate = useNavigate();
   const googleSignInButtonRef = useRef<HTMLDivElement>(null);
 
-  // Redirect if already logged in
-  if (isAuthenticated) {
-    return <Navigate to="/app" />;
-  }
-
   useEffect(() => {
     // Render the Google Sign-In button
     if (googleSignInButtonRef.current) {
@@ -97,6 +92,11 @@ const Auth: React.FC = () => {
       });
     }
   };
+
+  // This is the fix: Move the redirect after all hooks have been called
+  if (isAuthenticated) {
+    return <Navigate to="/app" />;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-purple-50 to-white p-4">
