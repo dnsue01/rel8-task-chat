@@ -9,10 +9,20 @@ import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from "date-fns";
 import NewContactForm from "../contacts/NewContactForm";
 import { es } from "date-fns/locale";
+import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 const ContactSidebar: React.FC = () => {
   const { contacts, activeContactId, setActiveContactId } = useCrm();
   const [searchQuery, setSearchQuery] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   const getInitials = (name: string): string => {
     return name
@@ -46,18 +56,18 @@ const ContactSidebar: React.FC = () => {
   });
 
   return (
-    <div className="w-80 h-full flex flex-col bg-white border-r">
-      <div className="p-4 border-b">
-        <h2 className="text-xl font-bold text-gray-800">Contactos</h2>
-        <p className="text-sm text-gray-500">Gestiona tus relaciones</p>
+    <div className={`${isMobile ? 'w-full' : 'w-72 md:w-80'} h-full flex flex-col bg-white border-r`}>
+      <div className="p-3 sm:p-4 border-b">
+        <h2 className="text-lg sm:text-xl font-bold text-gray-800">Contactos</h2>
+        <p className="text-xs sm:text-sm text-gray-500">Gestiona tus relaciones</p>
       </div>
 
-      <div className="p-4 border-b">
+      <div className="p-3 sm:p-4 border-b">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
           <Input 
             placeholder="Buscar contactos..." 
-            className="pl-10"
+            className="pl-10 h-9"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -82,33 +92,51 @@ const ContactSidebar: React.FC = () => {
         {sortedContacts.map((contact) => (
           <div
             key={contact.id}
-            className={`p-4 border-b cursor-pointer hover:bg-gray-50 transition-colors ${
+            className={`p-3 sm:p-4 border-b cursor-pointer hover:bg-gray-50 transition-colors ${
               contact.id === activeContactId ? "bg-blue-50 border-l-4 border-l-blue-500" : ""
             }`}
             onClick={() => handleContactClick(contact)}
           >
             <div className="flex">
-              <Avatar className="h-10 w-10 mr-3">
+              <Avatar className="h-9 w-9 sm:h-10 sm:w-10 mr-3 flex-shrink-0">
                 <AvatarImage src={contact.avatar} />
                 <AvatarFallback>{getInitials(contact.name)}</AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-baseline">
-                  <h3 className="font-medium text-gray-900 truncate">{contact.name}</h3>
+                  <h3 className="font-medium text-gray-900 truncate text-sm sm:text-base">{contact.name}</h3>
                   <span className="text-xs text-gray-500 whitespace-nowrap ml-1">
                     {formatLastActivity(contact.lastActivity)}
                   </span>
                 </div>
-                <p className="text-sm text-gray-500 truncate">{contact.company || contact.email}</p>
+                <p className="text-xs sm:text-sm text-gray-500 truncate">{contact.company || contact.email}</p>
               </div>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="p-4 border-t">
-        <NewContactForm />
-      </div>
+      {isMobile ? (
+        <div className="p-3 sm:p-4 border-t">
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="w-full" size="sm">
+                <Plus className="mr-1 h-4 w-4" /> Añadir Contacto
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Nuevo Contacto</DialogTitle>
+              </DialogHeader>
+              <NewContactForm onSuccess={() => setDialogOpen(false)} />
+            </DialogContent>
+          </Dialog>
+        </div>
+      ) : (
+        <div className="p-3 sm:p-4 border-t">
+          <NewContactForm />
+        </div>
+      )}
     </div>
   );
 };

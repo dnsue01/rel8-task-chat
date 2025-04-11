@@ -63,36 +63,36 @@ const AIAssistantComponent: React.FC = () => {
   }, [syncCalendarEvents, syncTasks, syncEmails]);
 
   return (
-    <div className="container mx-auto py-4 sm:py-6 px-2 sm:px-4 max-w-6xl">
-      <div className="flex items-center mb-4 sm:mb-8">
-        <div className="bg-purple-600 text-white p-2 rounded-md mr-3">
-          <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6" />
+    <div className="container mx-auto py-3 sm:py-6 px-2 sm:px-4 max-w-6xl">
+      <div className="flex items-center mb-3 sm:mb-6">
+        <div className="bg-purple-600 text-white p-1.5 sm:p-2 rounded-md mr-2 sm:mr-3">
+          <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5" />
         </div>
-        <h1 className="text-xl sm:text-2xl font-bold">Asistente IA</h1>
+        <h1 className="text-lg sm:text-xl md:text-2xl font-bold">Asistente IA</h1>
       </div>
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="mb-4 sm:mb-6 w-full">
+        <TabsList className="mb-3 sm:mb-6 w-full">
           <TabsTrigger value="chat" className="flex-1">Chat</TabsTrigger>
           <TabsTrigger value="templates" className="flex-1">Plantillas</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="chat">
+        <TabsContent value="chat" className="focus-visible:outline-none focus-visible:ring-0">
           <ChatInterface />
         </TabsContent>
         
-        <TabsContent value="templates">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+        <TabsContent value="templates" className="focus-visible:outline-none focus-visible:ring-0">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
             {templates.map(template => (
-              <div key={template.id} className="border rounded-lg p-4 sm:p-6 bg-white shadow-sm">
+              <div key={template.id} className="border rounded-lg p-3 sm:p-4 bg-white shadow-sm">
                 <div className="flex items-center mb-2">
                   {template.icon}
-                  <h3 className="text-base sm:text-lg font-medium">{template.title}</h3>
+                  <h3 className="text-sm sm:text-base font-medium">{template.title}</h3>
                 </div>
-                <p className="text-gray-500 mb-4 text-sm sm:text-base">{template.description}</p>
+                <p className="text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4">{template.description}</p>
                 <Button 
                   variant="outline"
-                  size={isMobile ? "sm" : "default"}
+                  size="sm"
                   onClick={() => {
                     setActiveTab("chat");
                     setSelectedPrompt(template.prompt);
