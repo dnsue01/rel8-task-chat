@@ -13,7 +13,7 @@ import { CalendarEvent, Email } from "../../types/integrations";
 
 // Client ID from Google Developer Console should be configured here
 // In a real application, this would be stored in environment variables
-const GOOGLE_CLIENT_ID = "179854550183-6bf7ghpsunb8noibvshi2vsna54dle91.apps.googleusercontent.com; // Replace with your actual client ID
+const GOOGLE_CLIENT_ID = "179854550183-6bf7ghpsunb8noibvshi2vsna54dle91.apps.googleusercontent.com"; // Replace with your actual client ID
 
 export const googleClient = {
   // Authentication
