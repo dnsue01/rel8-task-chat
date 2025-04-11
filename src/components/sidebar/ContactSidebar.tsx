@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useCrm } from "../../context/CrmContext";
 import { Contact } from "../../types";
@@ -36,10 +37,12 @@ const ContactSidebar: React.FC = () => {
     (contact.company && contact.company.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
+  // Fix para el error de lastActivity.getTime
   const sortedContacts = [...filteredContacts].sort((a, b) => {
-    if (!a.lastActivity) return 1;
-    if (!b.lastActivity) return -1;
-    return b.lastActivity.getTime() - a.lastActivity.getTime();
+    // Verificar que lastActivity existe y es una instancia de Date válida
+    const aTime = a.lastActivity instanceof Date ? a.lastActivity.getTime() : 0;
+    const bTime = b.lastActivity instanceof Date ? b.lastActivity.getTime() : 0;
+    return bTime - aTime; // Orden descendente
   });
 
   return (

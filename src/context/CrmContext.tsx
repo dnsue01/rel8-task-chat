@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { sampleContacts, sampleTasks, sampleNotes } from "../data/sampleData";
@@ -35,6 +34,38 @@ type CrmContextType = {
 
 const CrmContext = createContext<CrmContextType | undefined>(undefined);
 
+const parseDates = (obj: any): any => {
+  if (!obj) return obj;
+  
+  if (Array.isArray(obj)) {
+    return obj.map(item => parseDates(item));
+  }
+  
+  if (typeof obj === 'object') {
+    const newObj = {...obj};
+    Object.keys(newObj).forEach(key => {
+      if (
+        (typeof newObj[key] === 'string' && 
+         (key.endsWith('At') || key === 'lastActivity' || key === 'dueDate')) ||
+        (key === 'lastActivity' || key === 'createdAt' || key === 'completedAt' || key === 'dueDate')
+      ) {
+        if (newObj[key]) {
+          try {
+            newObj[key] = new Date(newObj[key]);
+          } catch (e) {
+            console.error(`Error parsing date for key ${key}:`, e);
+          }
+        }
+      } else if (typeof newObj[key] === 'object') {
+        newObj[key] = parseDates(newObj[key]);
+      }
+    });
+    return newObj;
+  }
+  
+  return obj;
+};
+
 export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -57,9 +88,9 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         localStorage.removeItem('crm_user');
       }
     } else {
-      setContacts(sampleContacts);
-      setTasks(sampleTasks);
-      setNotes(sampleNotes);
+      setContacts(parseDates(sampleContacts));
+      setTasks(parseDates(sampleTasks));
+      setNotes(parseDates(sampleNotes));
       setIsLoading(false);
     }
   }, []);
@@ -72,14 +103,14 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const userTasks = localStorage.getItem(`crm_tasks_${userId}`);
       const userNotes = localStorage.getItem(`crm_notes_${userId}`);
       
-      setContacts(userContacts ? JSON.parse(userContacts) : []);
-      setTasks(userTasks ? JSON.parse(userTasks) : []);
-      setNotes(userNotes ? JSON.parse(userNotes) : []);
+      setContacts(userContacts ? parseDates(JSON.parse(userContacts)) : []);
+      setTasks(userTasks ? parseDates(JSON.parse(userTasks)) : []);
+      setNotes(userNotes ? parseDates(JSON.parse(userNotes)) : []);
     } catch (e) {
       console.error("Error loading user data:", e);
-      setContacts(sampleContacts);
-      setTasks(sampleTasks);
-      setNotes(sampleNotes);
+      setContacts(parseDates(sampleContacts));
+      setTasks(parseDates(sampleTasks));
+      setNotes(parseDates(sampleNotes));
     } finally {
       setIsLoading(false);
     }
@@ -127,26 +158,23 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsLoading(true);
     
     try {
-      // Decode the JWT token from Google
       const decodedToken: any = jwtDecode(googleCredential);
       
       if (!decodedToken.email) {
         throw new Error("No se pudo obtener el email del usuario");
       }
       
-      // Check if user exists in our system
       const usersData = localStorage.getItem('crm_users');
       const users = usersData ? JSON.parse(usersData) : [];
       
       let user = users.find((u: any) => u.email === decodedToken.email);
       
-      // If user doesn't exist, create a new one
       if (!user) {
         const newUser = {
           id: uuidv4(),
           name: decodedToken.name || "Usuario de Google",
           email: decodedToken.email,
-          password: uuidv4(), // Random password for Google users
+          password: uuidv4(),
           avatar_url: decodedToken.picture,
           createdAt: new Date(),
           googleId: decodedToken.sub
@@ -158,12 +186,10 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const { password: _, ...safeUser } = newUser;
         user = safeUser;
       } else {
-        // Update existing user's Google info if needed
         if (!user.googleId || !user.avatar_url) {
           user.googleId = decodedToken.sub;
           user.avatar_url = user.avatar_url || decodedToken.picture;
           
-          // Update the user in the users array
           const updatedUsers = users.map((u: any) => 
             u.id === user.id ? {...u, googleId: decodedToken.sub, avatar_url: user.avatar_url || decodedToken.picture} : u
           );
