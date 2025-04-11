@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, X, User, LogOut, Calendar, Mail } from "lucide-react";
-import { useIsMobile } from "@/hooks/use-mobile"; // Fixed: Changed useMobile to useIsMobile
+import { useIsMobile } from "@/hooks/use-mobile"; // Corregido: Cambiado useMobile a useIsMobile
 import { useCrm } from "../../context/CrmContext";
 import { useIntegrations } from "../../context/IntegrationsContext";
 import ContactSidebar from "../sidebar/ContactSidebar";
@@ -28,7 +28,7 @@ const Layout: React.FC<LayoutProps> = ({ children, hideSidebar = false }) => {
   return (
     <div className="flex flex-col h-screen">
       {/* Navbar */}
-      <header className="bg-white border-b">
+      <header className="bg-white border-b shadow-sm">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
@@ -42,7 +42,7 @@ const Layout: React.FC<LayoutProps> = ({ children, hideSidebar = false }) => {
                   {menuOpen ? <X size={20} /> : <Menu size={20} />}
                 </Button>
               )}
-              <span className="text-xl font-bold text-primary">CRM Personal</span>
+              <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">CRM Personal</span>
             </div>
             
             {currentUser && (
@@ -51,6 +51,7 @@ const Layout: React.FC<LayoutProps> = ({ children, hideSidebar = false }) => {
                   variant="ghost" 
                   size="sm"
                   onClick={() => navigate('/app')}
+                  className="font-medium hover:bg-primary/10"
                 >
                   Contactos
                 </Button>
@@ -59,7 +60,7 @@ const Layout: React.FC<LayoutProps> = ({ children, hideSidebar = false }) => {
                   variant="ghost" 
                   size="sm" 
                   onClick={() => navigate('/integrations')}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 font-medium hover:bg-primary/10"
                 >
                   <div className="flex gap-1">
                     <Calendar className="h-4 w-4" />
@@ -76,7 +77,7 @@ const Layout: React.FC<LayoutProps> = ({ children, hideSidebar = false }) => {
                     <div className="h-8 w-8 bg-primary/10 rounded-full flex items-center justify-center text-primary mr-2">
                       <User size={16} />
                     </div>
-                    <span className="text-sm font-medium">{currentUser.name}</span>
+                    <span className="text-sm font-medium hidden sm:inline">{currentUser.name}</span>
                   </div>
                   
                   <Button
@@ -84,6 +85,7 @@ const Layout: React.FC<LayoutProps> = ({ children, hideSidebar = false }) => {
                     size="icon"
                     onClick={handleLogout}
                     title="Cerrar sesión"
+                    className="hover:bg-red-50 hover:text-red-600"
                   >
                     <LogOut size={18} />
                   </Button>
@@ -104,13 +106,13 @@ const Layout: React.FC<LayoutProps> = ({ children, hideSidebar = false }) => {
                     menuOpen ? "translate-x-0" : "-translate-x-full"
                   }`
                 : "w-64 border-r"
-            }`}
+            } bg-sidebar shadow-md`}
           >
-            {/* Fixed: Removed the onClose prop since ContactSidebar doesn't accept it */}
+            {/* Eliminada la prop onClose que causaba el error */}
             <ContactSidebar />
           </div>
         )}
-        <div className={`flex-1 overflow-auto ${!hideSidebar && !isMobile ? "ml-64" : ""}`}>
+        <div className={`flex-1 overflow-auto ${!hideSidebar && !isMobile ? "ml-64" : ""} bg-gray-50`}>
           {children}
         </div>
       </div>
