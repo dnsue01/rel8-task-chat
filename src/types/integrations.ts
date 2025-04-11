@@ -30,6 +30,10 @@ export interface Task {
   listId?: string;
   link?: string;
   updated?: string;
+  contactAssociation?: {
+    options: string[];
+    selected: string | null;
+  };
 }
 
 export interface TaskList {

@@ -6,7 +6,7 @@ import { useCrm } from "../context/CrmContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, Mail, CheckSquare, RefreshCw, Link2, ExternalLink, Globe, ChevronRight, Info } from "lucide-react";
+import { Calendar, Mail, CheckSquare, RefreshCw, Link2, ExternalLink, Globe, ChevronRight, Info, UserPlus } from "lucide-react";
 import { formatDistanceToNow, format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { CalendarEvent, Email, MatchResult, Task } from "../types/integrations";
@@ -688,7 +688,16 @@ interface TaskCardProps {
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({ task, notes, onLinkNote }) => {
+  const { getContacts } = useCrm();
+  const contacts = getContacts ? getContacts() : [];
   const linkedNote = notes.find(n => n.id === task.linkedNoteId);
+  const [selectedContact, setSelectedContact] = useState<string | null>(task.contactAssociation?.selected || null);
+  
+  // Function to handle contact selection
+  const handleContactSelect = (contactName: string) => {
+    setSelectedContact(contactName);
+    // Here you could add logic to actually link the contact in your database
+  };
   
   return (
     <div className="border rounded-lg p-4">
@@ -731,6 +740,78 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, notes, onLinkNote }) => {
           >
             {task.completed ? 'Completada' : 'Pendiente'}
           </Badge>
+        </div>
+      </div>
+      
+      <div className="mt-4 pt-3 border-t flex items-center justify-between">
+        <div className="flex items-center">
+          <UserPlus className="h-4 w-4 text-gray-500 mr-2" />
+          <span className="text-sm text-gray-500">Contacto:</span>
+        </div>
+        <div>
+          {selectedContact ? (
+            <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-200">
+              {selectedContact}
+            </Badge>
+          ) : task.contactAssociation && task.contactAssociation.options.length > 0 ? (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 text-xs">
+                  Asociar contacto <ChevronRight className="h-3 w-3 ml-1" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="p-0 w-[200px]" align="end">
+                <Command>
+                  <CommandList>
+                    <CommandEmpty>Sin sugerencias</CommandEmpty>
+                    <CommandGroup>
+                      {task.contactAssociation.options.map((option, i) => (
+                        <CommandItem 
+                          key={i} 
+                          onSelect={() => handleContactSelect(option)}
+                          className="cursor-pointer"
+                        >
+                          {option}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          ) : (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 text-xs">
+                  Asociar contacto <ChevronRight className="h-3 w-3 ml-1" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="p-0 w-[200px]" align="end">
+                <Command>
+                  <CommandList>
+                    <CommandEmpty>Sin sugerencias</CommandEmpty>
+                    <CommandGroup>
+                      {contacts.map((contact, i) => (
+                        <CommandItem 
+                          key={i} 
+                          onSelect={() => handleContactSelect(contact.name)}
+                          className="cursor-pointer"
+                        >
+                          {contact.name}
+                        </CommandItem>
+                      ))}
+                      <CommandItem
+                        onSelect={() => handleContactSelect("Nuevo contacto")}
+                        className="cursor-pointer text-blue-600"
+                      >
+                        + Nuevo contacto
+                      </CommandItem>
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          )}
         </div>
       </div>
       

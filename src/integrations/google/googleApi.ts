@@ -175,11 +175,45 @@ const extractUrlFromText = (text: string | undefined): string | undefined => {
 };
 
 /**
+ * Check if text contains a potential contact name or email
+ * @param text The text to analyze
+ * @param contacts The list of contacts to match against
+ * @returns Array of matching contact names
+ */
+const findPotentialContactMatches = (text: string | undefined, contacts: any[]): string[] => {
+  if (!text || !contacts || contacts.length === 0) return [];
+  
+  const matches: string[] = [];
+  const textLower = text.toLowerCase();
+  
+  // Check for each contact if their name or email appears in the text
+  contacts.forEach(contact => {
+    const name = contact.name?.toLowerCase();
+    const email = contact.email?.toLowerCase();
+    
+    // Check for name match - exact match or as part of the text
+    if (name && textLower.includes(name)) {
+      matches.push(contact.name);
+    }
+    
+    // Check for email match - exact match or as part of the text
+    if (email && textLower.includes(email)) {
+      if (!matches.includes(contact.name)) {
+        matches.push(contact.name);
+      }
+    }
+  });
+  
+  return matches;
+};
+
+/**
  * Function to fetch tasks from a specific task list
  * @param listId The ID of the task list
+ * @param contacts Optional list of contacts to match against task content
  * @returns Promise with tasks
  */
-export const fetchTasks = async (listId: string): Promise<Task[]> => {
+export const fetchTasks = async (listId: string, contacts: any[] = []): Promise<Task[]> => {
   try {
     const accessToken = getGoogleAccessToken();
     if (!accessToken) {
@@ -210,6 +244,19 @@ export const fetchTasks = async (listId: string): Promise<Task[]> => {
         const linkFromNotes = extractUrlFromText(item.notes);
         const link = linkFromNotes || linkFromTitle;
         
+        // Find potential contact matches in task title or notes
+        const titleMatches = findPotentialContactMatches(item.title, contacts);
+        const notesMatches = findPotentialContactMatches(item.notes, contacts);
+        
+        // Combine unique matches
+        const allMatches = [...new Set([...titleMatches, ...notesMatches])];
+        
+        // Create contact association options if matches found
+        const contactAssociation = allMatches.length > 0 ? {
+          options: [...allMatches, "Nuevo contacto"],
+          selected: null
+        } : undefined;
+        
         return {
           id: item.id,
           title: item.title || 'Unnamed Task',
@@ -219,7 +266,8 @@ export const fetchTasks = async (listId: string): Promise<Task[]> => {
           completed: item.status === 'completed',
           listId: listId,
           updated: item.updated,
-          link: link
+          link: link,
+          contactAssociation: contactAssociation
         };
       });
       return tasks;

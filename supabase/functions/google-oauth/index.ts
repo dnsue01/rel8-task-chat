@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -12,6 +13,34 @@ function extractUrlFromText(text) {
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   const matches = text.match(urlRegex);
   return matches ? matches[0] : undefined;
+}
+
+// Function to find potential contact matches in text
+function findPotentialContactMatches(text, contacts) {
+  if (!text || !contacts || contacts.length === 0) return [];
+  
+  const matches = [];
+  const textLower = text.toLowerCase();
+  
+  // Check for each contact if their name or email appears in the text
+  contacts.forEach(contact => {
+    const name = contact.name?.toLowerCase();
+    const email = contact.email?.toLowerCase();
+    
+    // Check for name match
+    if (name && textLower.includes(name)) {
+      matches.push(contact.name);
+    }
+    
+    // Check for email match
+    if (email && textLower.includes(email)) {
+      if (!matches.includes(contact.name)) {
+        matches.push(contact.name);
+      }
+    }
+  });
+  
+  return matches;
 }
 
 serve(async (req) => {
@@ -178,11 +207,36 @@ serve(async (req) => {
         if (tasksResponse.ok) {
           const tasksData = await tasksResponse.json();
           if (tasksData.items) {
-            allTasks.push(...tasksData.items.map(task => ({
-              ...task,
-              listId: list.id,
-              listTitle: list.title
-            })));
+            // Process tasks with contact matching
+            const processedTasks = tasksData.items.map(task => {
+              // Extract link from title or notes if present
+              const linkFromTitle = extractUrlFromText(task.title);
+              const linkFromNotes = extractUrlFromText(task.notes);
+              const link = linkFromNotes || linkFromTitle;
+              
+              // Find potential contact matches in task title or notes
+              const titleMatches = findPotentialContactMatches(task.title, crm_contacts || []);
+              const notesMatches = findPotentialContactMatches(task.notes, crm_contacts || []);
+              
+              // Combine unique matches
+              const allMatches = [...new Set([...titleMatches, ...notesMatches])];
+              
+              // Create contact association options
+              const contactAssociation = allMatches.length > 0 ? {
+                options: [...allMatches, "Nuevo contacto"],
+                selected: null
+              } : undefined;
+              
+              return {
+                ...task,
+                listId: list.id,
+                listTitle: list.title,
+                link: link,
+                contactAssociation: contactAssociation
+              };
+            });
+            
+            allTasks.push(...processedTasks);
           }
         }
       }
@@ -269,11 +323,6 @@ serve(async (req) => {
       for (const task of allTasks) {
         if (task.status === "completed") continue;
         
-        // Extract link from title or notes if present
-        const linkFromTitle = extractUrlFromText(task.title);
-        const linkFromNotes = extractUrlFromText(task.notes);
-        const link = linkFromNotes || linkFromTitle;
-        
         // Use due date if available, otherwise use current date
         const taskDate = task.due ? new Date(task.due) : new Date();
         
@@ -285,10 +334,12 @@ serve(async (req) => {
           hora_fin: new Date(taskDate.getTime() + 30 * 60000).toISOString(), // Add 30 minutes
           participantes: [],
           descripcion: task.notes || "",
-          contacto_vinculado: null,
-          accion: null,
+          contacto_vinculado: task.contactAssociation ? { 
+            sugerencias: task.contactAssociation.options 
+          } : null,
+          accion: task.contactAssociation ? "asociar_a_contacto" : null,
           event_data: task,
-          link: link
+          link: task.link
         });
       }
       
