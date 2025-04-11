@@ -14,21 +14,26 @@ export const fetchCalendarEvents = async (): Promise<CalendarEvent[]> => {
       throw new Error("No Google access token available");
     }
 
-    const response = await supabase.functions.invoke("google-oauth", {
-      body: {
-        access_token: accessToken,
-        endpoint: "calendar",
-      },
-    });
+    // Direct API call to Google Calendar
+    const now = new Date().toISOString();
+    const response = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${now}&maxResults=10&singleEvents=true&orderBy=startTime`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
 
-    if (response.error) {
-      console.error("Error fetching calendar events:", response.error);
-      throw new Error(`Error fetching calendar events: ${response.error.message}`);
+    if (!response.ok) {
+      throw new Error(`Google Calendar API error: ${response.status}`);
     }
 
+    const data = await response.json();
+
     // Transform Google Calendar API response to our CalendarEvent format
-    if (response.data && response.data.items) {
-      const events: CalendarEvent[] = response.data.items
+    if (data && data.items) {
+      const events: CalendarEvent[] = data.items
         .filter((item: any) => item.status !== 'cancelled')
         .map((item: any) => ({
           id: item.id,
@@ -60,21 +65,25 @@ export const fetchContacts = async (): Promise<Contact[]> => {
       throw new Error("No Google access token available");
     }
 
-    const response = await supabase.functions.invoke("google-oauth", {
-      body: {
-        access_token: accessToken,
-        endpoint: "contacts",
-      },
-    });
+    // Direct API call to Google People API
+    const response = await fetch(
+      "https://people.googleapis.com/v1/people/me/connections?personFields=names,emailAddresses,phoneNumbers",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
 
-    if (response.error) {
-      console.error("Error fetching contacts:", response.error);
-      throw new Error(`Error fetching contacts: ${response.error.message}`);
+    if (!response.ok) {
+      throw new Error(`Google People API error: ${response.status}`);
     }
 
+    const data = await response.json();
+
     // Transform Google People API response to our Contact format
-    if (response.data && response.data.connections) {
-      const contacts: Contact[] = response.data.connections.map((item: any) => {
+    if (data && data.connections) {
+      const contacts: Contact[] = data.connections.map((item: any) => {
         // Extract name
         const name = item.names && item.names.length > 0 
           ? item.names[0].displayName 
@@ -119,21 +128,25 @@ export const fetchTaskLists = async (): Promise<TaskList[]> => {
       throw new Error("No Google access token available");
     }
 
-    const response = await supabase.functions.invoke("google-oauth", {
-      body: {
-        access_token: accessToken,
-        endpoint: "tasks/lists",
-      },
-    });
+    // Direct API call to Google Tasks API
+    const response = await fetch(
+      "https://tasks.googleapis.com/tasks/v1/users/@me/lists",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
 
-    if (response.error) {
-      console.error("Error fetching task lists:", response.error);
-      throw new Error(`Error fetching task lists: ${response.error.message}`);
+    if (!response.ok) {
+      throw new Error(`Google Tasks API error: ${response.status}`);
     }
 
+    const data = await response.json();
+
     // Transform Google Tasks API response to our TaskList format
-    if (response.data && response.data.items) {
-      const taskLists: TaskList[] = response.data.items.map((item: any) => ({
+    if (data && data.items) {
+      const taskLists: TaskList[] = data.items.map((item: any) => ({
         id: item.id,
         title: item.title || 'Unnamed List',
       }));
@@ -159,22 +172,25 @@ export const fetchTasks = async (listId: string): Promise<Task[]> => {
       throw new Error("No Google access token available");
     }
 
-    const response = await supabase.functions.invoke("google-oauth", {
-      body: {
-        access_token: accessToken,
-        endpoint: "tasks",
-        task_list_id: listId,
-      },
-    });
+    // Direct API call to Google Tasks API for specific list
+    const response = await fetch(
+      `https://tasks.googleapis.com/tasks/v1/lists/${listId}/tasks`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
 
-    if (response.error) {
-      console.error("Error fetching tasks:", response.error);
-      throw new Error(`Error fetching tasks: ${response.error.message}`);
+    if (!response.ok) {
+      throw new Error(`Google Tasks API error: ${response.status}`);
     }
 
+    const data = await response.json();
+
     // Transform Google Tasks API response to our Task format
-    if (response.data && response.data.items) {
-      const tasks: Task[] = response.data.items.map((item: any) => ({
+    if (data && data.items) {
+      const tasks: Task[] = data.items.map((item: any) => ({
         id: item.id,
         title: item.title || 'Unnamed Task',
         notes: item.notes || '',
@@ -204,35 +220,39 @@ export const fetchEmails = async (): Promise<Email[]> => {
       throw new Error("No Google access token available");
     }
 
-    const response = await supabase.functions.invoke("google-oauth", {
-      body: {
-        access_token: accessToken,
-        endpoint: "gmail",
-      },
-    });
+    // Direct API call to Gmail API
+    const response = await fetch(
+      "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=10",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
 
-    if (response.error) {
-      console.error("Error fetching emails:", response.error);
-      throw new Error(`Error fetching emails: ${response.error.message}`);
+    if (!response.ok) {
+      throw new Error(`Gmail API error: ${response.status}`);
     }
 
-    // We need to fetch details for each message to get the full email content
+    const data = await response.json();
     const emails: Email[] = [];
     
-    if (response.data && response.data.messages) {
+    if (data && data.messages) {
       // For each message ID, fetch the full message details
-      for (const message of response.data.messages) {
+      for (const message of data.messages) {
         try {
-          const detailsResponse = await supabase.functions.invoke("google-oauth", {
-            body: {
-              access_token: accessToken,
-              endpoint: "gmail/message",
-              message_id: message.id,
-            },
-          });
+          const detailResponse = await fetch(
+            `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}`,
+            {
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+              },
+            }
+          );
           
-          if (!detailsResponse.error && detailsResponse.data) {
-            const email = parseGmailMessage(detailsResponse.data);
+          if (detailResponse.ok) {
+            const emailData = await detailResponse.json();
+            const email = parseGmailMessage(emailData);
             if (email) {
               emails.push(email);
             }
@@ -263,20 +283,22 @@ export const fetchEmailDetails = async (messageId: string): Promise<Email | null
       throw new Error("No Google access token available");
     }
 
-    const response = await supabase.functions.invoke("google-oauth", {
-      body: {
-        access_token: accessToken,
-        endpoint: "gmail/message",
-        message_id: messageId,
-      },
-    });
+    // Direct API call to Gmail API for specific message
+    const response = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
 
-    if (response.error) {
-      console.error("Error fetching email details:", response.error);
-      throw new Error(`Error fetching email details: ${response.error.message}`);
+    if (!response.ok) {
+      throw new Error(`Gmail API error: ${response.status}`);
     }
 
-    return parseGmailMessage(response.data);
+    const data = await response.json();
+    return parseGmailMessage(data);
   } catch (error) {
     console.error("Error in fetchEmailDetails:", error);
     throw error;

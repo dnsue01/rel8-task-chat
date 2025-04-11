@@ -5,17 +5,26 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
-import { Calendar, Mail, AlertCircle, CheckCircle, RefreshCw, ExternalLink, CheckSquare, XCircle } from "lucide-react";
+import { Calendar, Mail, AlertCircle, CheckCircle, RefreshCw, ExternalLink, CheckSquare, XCircle, Contact } from "lucide-react";
 import { googleClient } from '../../integrations/google/googleClient';
 import { useIntegrations } from '../../context/IntegrationsContext';
-import { supabase } from "@/integrations/supabase/client";
 
 const GoogleIntegration: React.FC = () => {
-  const { isGoogleConnected, connectGoogleCalendar, disconnectGoogleCalendar, syncCalendarEvents, syncEmails, syncTasks, syncState } = useIntegrations();
+  const { 
+    isGoogleConnected, 
+    connectGoogleCalendar, 
+    disconnectGoogleCalendar, 
+    syncCalendarEvents, 
+    syncEmails, 
+    syncTasks, 
+    syncContacts,
+    syncState 
+  } = useIntegrations();
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
   const [isSyncingEmails, setIsSyncingEmails] = useState(false);
   const [isSyncingTasks, setIsSyncingTasks] = useState(false);
+  const [isSyncingContacts, setIsSyncingContacts] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -88,10 +97,11 @@ const GoogleIntegration: React.FC = () => {
       });
     } catch (error) {
       console.error('Error syncing calendar:', error);
+      const errorMessage = error instanceof Error ? error.message : "Error desconocido";
       toast({
         variant: "destructive",
         title: "Error de sincronización",
-        description: "No se pudieron sincronizar tus eventos de calendario",
+        description: `No se pudieron sincronizar tus eventos de calendario: ${errorMessage}`,
       });
     } finally {
       setIsSyncingCalendar(false);
@@ -108,10 +118,11 @@ const GoogleIntegration: React.FC = () => {
       });
     } catch (error) {
       console.error('Error syncing emails:', error);
+      const errorMessage = error instanceof Error ? error.message : "Error desconocido";
       toast({
         variant: "destructive",
         title: "Error de sincronización",
-        description: "No se pudieron sincronizar tus correos",
+        description: `No se pudieron sincronizar tus correos: ${errorMessage}`,
       });
     } finally {
       setIsSyncingEmails(false);
@@ -128,60 +139,35 @@ const GoogleIntegration: React.FC = () => {
       });
     } catch (error) {
       console.error('Error syncing tasks:', error);
+      const errorMessage = error instanceof Error ? error.message : "Error desconocido";
       toast({
         variant: "destructive",
         title: "Error de sincronización",
-        description: "No se pudieron sincronizar tus tareas",
+        description: `No se pudieron sincronizar tus tareas: ${errorMessage}`,
       });
     } finally {
       setIsSyncingTasks(false);
     }
   };
 
-  const testEdgeFunction = async () => {
+  const handleSyncContacts = async () => {
+    setIsSyncingContacts(true);
     try {
-      // For demonstration purposes; in a real app you'd use the actual access token from auth
-      const accessToken = localStorage.getItem('google_auth_token');
-      if (!accessToken) {
-        toast({
-          variant: "destructive",
-          title: "No se encontró token de acceso",
-          description: "Debes conectar tu cuenta de Google primero",
-        });
-        return;
-      }
-      
-      // Call the edge function for calendar
-      const { data, error } = await supabase.functions.invoke('google-oauth', {
-        body: { 
-          access_token: accessToken,
-          endpoint: "calendar" 
-        }
-      });
-      
-      if (error) {
-        console.error('Edge function error:', error);
-        toast({
-          variant: "destructive",
-          title: "Error en Edge Function",
-          description: `${error.message || "Error al llamar la función Edge"}`,
-        });
-        return;
-      }
-
-      console.log("Edge function response:", data);
-      
+      await syncContacts();
       toast({
-        title: "Edge Function ejecutada",
-        description: `La función de Edge ha devuelto ${data.items?.length || 0} eventos. Revisa la consola para detalles.`,
+        title: "Sincronización completada", 
+        description: "Tus contactos han sido sincronizados con éxito",
       });
     } catch (error) {
-      console.error('Error calling edge function:', error);
+      console.error('Error syncing contacts:', error);
+      const errorMessage = error instanceof Error ? error.message : "Error desconocido";
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Error al llamar a la función Edge",
+        title: "Error de sincronización",
+        description: `No se pudieron sincronizar tus contactos: ${errorMessage}`,
       });
+    } finally {
+      setIsSyncingContacts(false);
     }
   };
 
@@ -191,7 +177,7 @@ const GoogleIntegration: React.FC = () => {
         <div className="flex justify-between items-center">
           <div>
             <CardTitle>Integración con Google</CardTitle>
-            <CardDescription>Conecta tu cuenta de Google para sincronizar calendarios, tareas y correos</CardDescription>
+            <CardDescription>Conecta tu cuenta de Google para sincronizar calendarios, tareas, correos y contactos</CardDescription>
           </div>
           {isGoogleConnected && (
             <Badge variant="outline" className="bg-green-100 text-green-800 hover:bg-green-200">
@@ -220,11 +206,11 @@ const GoogleIntegration: React.FC = () => {
           <AlertTitle>Estado de la integración</AlertTitle>
           <AlertDescription>
             <p className="mb-2">
-              Esta integración utiliza las APIs de Google a través de Supabase Edge Functions para mantener la seguridad de tus credenciales.
+              Esta integración usa directamente las APIs de Google para sincronizar tu información usando OAuth.
             </p>
             <p>Para una funcionalidad completa:</p>
             <ul className="list-disc list-inside mt-2 space-y-1">
-              <li>Asegúrate de tener los permisos de Calendar, Tasks y Gmail activados</li>
+              <li>Asegúrate de tener los permisos de Calendar, Tasks, Gmail y People activados</li>
               <li>Si encuentras problemas, revisa la consola para más detalles</li>
               <li>Verifica que las redirecciones de OAuth estén correctamente configuradas</li>
             </ul>
@@ -267,24 +253,18 @@ const GoogleIntegration: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="mt-6 p-4 border rounded-lg bg-gray-50">
-          <h4 className="text-sm font-medium mb-2 flex items-center">
-            <ExternalLink className="h-4 w-4 mr-1" /> Edge Function (Backend Seguro)
-          </h4>
-          <p className="text-sm text-gray-600 mb-3">
-            Las Edge Functions de Supabase permiten manejar tokens de forma segura y hacer llamadas a las APIs de Google sin exponer credenciales en el frontend.
-          </p>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={testEdgeFunction}
-            disabled={!isGoogleConnected}
-            className="w-full"
-          >
-            Probar Edge Function
-          </Button>
+          <div className="flex items-center space-x-2">
+            <Contact className="h-5 w-5 text-gray-500" />
+            <div>
+              <div className="font-medium">Google Contacts</div>
+              <div className="text-sm text-gray-500">
+                {syncState.lastContactsSync ? 
+                  `Última sincronización: ${new Date(syncState.lastContactsSync).toLocaleString()}` : 
+                  "No sincronizado aún"}
+              </div>
+            </div>
+          </div>
         </div>
       </CardContent>
       <CardFooter className="flex flex-wrap justify-end gap-3">
@@ -316,6 +296,15 @@ const GoogleIntegration: React.FC = () => {
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${isSyncingEmails ? "animate-spin" : ""}`} />
               Sincronizar Correos
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={handleSyncContacts}
+              disabled={isSyncingContacts}
+              className="flex-1 sm:flex-none"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isSyncingContacts ? "animate-spin" : ""}`} />
+              Sincronizar Contactos
             </Button>
             <Button 
               variant="destructive" 
