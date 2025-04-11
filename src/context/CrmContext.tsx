@@ -27,6 +27,7 @@ type CrmContextType = {
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
+  updateUser: (user: { id: string; name: string; email: string }) => void;
 };
 
 const CrmContext = createContext<CrmContextType | undefined>(undefined);
@@ -295,7 +296,11 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     getNotesForContact,
     login,
     register,
-    logout
+    logout,
+    updateUser: (user: { id: string; name: string; email: string }) => {
+      setCurrentUser(user);
+      // In a real app, you would also update the user in your backend
+    }
   };
 
   return <CrmContext.Provider value={value}>{children}</CrmContext.Provider>;

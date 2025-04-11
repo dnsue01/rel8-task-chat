@@ -10,12 +10,12 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
-import { CircleUserRound, Mail, Upload } from "lucide-react";
+import { CircleUserRound, Mail, Upload, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useIntegrations } from "../context/IntegrationsContext";
 
 const Settings: React.FC = () => {
-  const { currentUser, updateUserProfile } = useCrm();
+  const { currentUser, updateUser } = useCrm(); // Changed from updateUserProfile to updateUser to match context
   const { isGoogleConnected, disconnectGoogleCalendar } = useIntegrations();
   const { toast } = useToast();
   
@@ -28,7 +28,7 @@ const Settings: React.FC = () => {
     
     // Simulación de actualización
     setTimeout(() => {
-      updateUserProfile({
+      updateUser({
         ...currentUser,
         name,
         email
