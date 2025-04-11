@@ -17,7 +17,7 @@ const ImportContactsDialog: React.FC<ImportContactsDialogProps> = ({ onSuccess }
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [processing, setProcessing] = useState(false);
-  const { addContacts } = useCrm();
+  const { addContacts, contacts } = useCrm();
   const { toast } = useToast();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -62,8 +62,19 @@ const ImportContactsDialog: React.FC<ImportContactsDialogProps> = ({ onSuccess }
       return [];
     }
     
+    // Create a map of existing phone numbers to check for duplicates
+    const existingPhones = new Map();
+    contacts.forEach(contact => {
+      if (contact.phone) {
+        // Standardize the phone number for comparison
+        const standardizedPhone = contact.phone.replace(/[^\d+]/g, "");
+        existingPhones.set(standardizedPhone, contact.id);
+      }
+    });
+    
     // Process data lines (skip header)
-    const contacts: Omit<Contact, "id" | "lastActivity">[] = [];
+    const newContacts: Omit<Contact, "id" | "lastActivity">[] = [];
+    const duplicates: {name: string, phone: string}[] = [];
     const dataLines = lines.slice(lines.indexOf(headerLine.join(",")) + 1);
     
     dataLines.forEach(line => {
@@ -102,18 +113,34 @@ const ImportContactsDialog: React.FC<ImportContactsDialogProps> = ({ onSuccess }
       // Remove non-standard characters except for +
       phone = phone.replace(/[^\d+]/g, "");
       
-      if (fullName) {
-        contacts.push({
-          name: fullName,
-          phone,
-          email: "",
-          status: "lead" as ContactStatus,
-          tags: [],
-        });
+      // Only add if we have a name and the phone is not already in our contacts
+      if (fullName && phone) {
+        // Check if this phone number already exists in our contacts
+        if (existingPhones.has(phone)) {
+          duplicates.push({ name: fullName, phone });
+        } else {
+          // Add to new contacts list and to our tracking map to catch duplicates within the import file
+          newContacts.push({
+            name: fullName,
+            phone,
+            email: "",
+            status: "lead" as ContactStatus,
+            tags: [],
+          });
+          existingPhones.set(phone, "new");
+        }
       }
     });
     
-    return contacts;
+    // If we have duplicates, show a toast with the count
+    if (duplicates.length > 0) {
+      toast({
+        title: `${duplicates.length} contactos duplicados omitidos`,
+        description: `Se han encontrado ${duplicates.length} contactos con números de teléfono ya existentes.`,
+      });
+    }
+    
+    return newContacts;
   };
 
   const handleImport = async (e: React.FormEvent) => {
@@ -124,9 +151,9 @@ const ImportContactsDialog: React.FC<ImportContactsDialogProps> = ({ onSuccess }
     
     try {
       const text = await file.text();
-      const contacts = processCSV(text);
+      const contactsToImport = processCSV(text);
       
-      if (contacts.length === 0) {
+      if (contactsToImport.length === 0) {
         toast({
           title: "Importación vacía",
           description: "No se encontraron contactos válidos para importar",
@@ -137,11 +164,11 @@ const ImportContactsDialog: React.FC<ImportContactsDialogProps> = ({ onSuccess }
       }
       
       // Import contacts in batch
-      await addContacts(contacts);
+      await addContacts(contactsToImport);
       
       toast({
         title: "Importación completada",
-        description: `Se han importado ${contacts.length} contactos correctamente`,
+        description: `Se han importado ${contactsToImport.length} contactos correctamente`,
       });
       
       // Reset and close dialog
