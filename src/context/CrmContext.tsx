@@ -15,6 +15,8 @@ type CrmContextType = {
   
   setActiveContactId: (id: string | null) => void;
   addContact: (contact: Omit<Contact, "id" | "lastActivity">) => Promise<void>;
+  updateContact: (id: string, contactData: Partial<Contact>) => void;
+  deleteContact: (id: string) => void;
   addContacts: (contacts: Omit<Contact, "id" | "lastActivity">[]) => Promise<void>;
   getContactById: (id: string) => Contact | undefined;
   
@@ -273,6 +275,28 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [contacts, tasks, notes, isAuthenticated, currentUser]);
 
+  const updateContact = (id: string, contactData: Partial<Contact>) => {
+    setContacts(prevContacts => 
+      prevContacts.map(contact => 
+        contact.id === id 
+          ? { ...contact, ...contactData, lastActivity: new Date() }
+          : contact
+      )
+    );
+  };
+
+  const deleteContact = (id: string) => {
+    setTasks(prevTasks => prevTasks.filter(task => task.contactId !== id));
+    
+    setNotes(prevNotes => prevNotes.filter(note => note.contactId !== id));
+    
+    setContacts(prevContacts => prevContacts.filter(contact => contact.id !== id));
+    
+    if (activeContactId === id) {
+      setActiveContactId(null);
+    }
+  };
+
   const getContactById = (id: string) => {
     return contacts.find(contact => contact.id === id);
   };
@@ -430,6 +454,8 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     currentUser,
     setActiveContactId,
     addContact,
+    updateContact,
+    deleteContact,
     addContacts,
     getContactById,
     addTask,
@@ -444,11 +470,7 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loginWithGoogle,
     register,
     logout,
-    updateUser: (user: User) => {
-      setCurrentUser(user);
-      localStorage.setItem('crm_user', JSON.stringify(user));
-      // In a real app, you would also update the user in your backend
-    }
+    updateUser
   };
 
   return <CrmContext.Provider value={value}>{children}</CrmContext.Provider>;

@@ -4,11 +4,19 @@ import { useCrm } from "../../context/CrmContext";
 import TaskBubble from "../tasks/TaskBubble";
 import NewTaskForm from "../tasks/NewTaskForm";
 import AddNoteForm from "./AddNoteForm";
+import EditContactDialog from "./EditContactDialog";
+import DeleteContactDialog from "./DeleteContactDialog";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Phone, Mail, Building2, Tag, MessageSquare, FileText, Loader2 } from "lucide-react";
+import { Phone, Mail, Building2, Tag, MessageSquare, FileText, Loader2, MoreVertical } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 
 const ContactDetail: React.FC = () => {
   const { activeContactId, getContactById, getTasksForContact, getNotesForContact, isLoading } = useCrm();
@@ -81,45 +89,75 @@ const ContactDetail: React.FC = () => {
     <div className="h-full flex flex-col max-w-4xl mx-auto">
       {/* Contact Header */}
       <div className="bg-white rounded-lg shadow-sm p-6 mb-4">
-        <div className="flex items-center">
-          <Avatar className="h-16 w-16 mr-4">
-            <AvatarImage src={contact.avatar} />
-            <AvatarFallback>{getInitials(contact.name)}</AvatarFallback>
-          </Avatar>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-gray-900">{contact.name}</h1>
-              {getStatusBadge()}
-            </div>
-            <p className="text-gray-500">
-              {contact.lastActivity && 
-                `Última actividad ${formatDistanceToNow(contact.lastActivity, { addSuffix: true, locale: es })}`}
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <div className="flex items-center text-sm text-gray-500">
-                <Mail className="h-4 w-4 mr-1" /> {contact.email}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <ContextMenu>
+              <ContextMenuTrigger className="cursor-pointer">
+                <Avatar className="h-16 w-16 mr-4">
+                  <AvatarImage src={contact.avatar} />
+                  <AvatarFallback>{getInitials(contact.name)}</AvatarFallback>
+                </Avatar>
+              </ContextMenuTrigger>
+              <ContextMenuContent className="w-48">
+                <EditContactDialog
+                  contact={contact}
+                  trigger={
+                    <ContextMenuItem className="cursor-pointer">
+                      Editar contacto
+                    </ContextMenuItem>
+                  }
+                />
+                <DeleteContactDialog
+                  contact={contact}
+                  trigger={
+                    <ContextMenuItem className="cursor-pointer text-red-600">
+                      Eliminar contacto
+                    </ContextMenuItem>
+                  }
+                />
+              </ContextMenuContent>
+            </ContextMenu>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold text-gray-900">{contact.name}</h1>
+                {getStatusBadge()}
               </div>
-              {contact.phone && (
-                <div className="flex items-center text-sm text-gray-500">
-                  <Phone className="h-4 w-4 mr-1" /> {contact.phone}
+              <p className="text-gray-500">
+                {contact.lastActivity && 
+                  `Última actividad ${formatDistanceToNow(contact.lastActivity, { addSuffix: true, locale: es })}`}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {contact.email && (
+                  <div className="flex items-center text-sm text-gray-500">
+                    <Mail className="h-4 w-4 mr-1" /> {contact.email}
+                  </div>
+                )}
+                {contact.phone && (
+                  <div className="flex items-center text-sm text-gray-500">
+                    <Phone className="h-4 w-4 mr-1" /> {contact.phone}
+                  </div>
+                )}
+                {contact.company && (
+                  <div className="flex items-center text-sm text-gray-500">
+                    <Building2 className="h-4 w-4 mr-1" /> {contact.company}
+                  </div>
+                )}
+              </div>
+              {contact.tags && contact.tags.length > 0 && (
+                <div className="mt-2 flex items-center gap-2">
+                  <Tag className="h-4 w-4 text-gray-500" />
+                  {contact.tags.map((tag) => (
+                    <span key={tag} className="bg-gray-100 text-gray-800 text-xs px-2 py-0.5 rounded">
+                      {tag}
+                    </span>
+                  ))}
                 </div>
               )}
-              {contact.company && (
-                <div className="flex items-center text-sm text-gray-500">
-                  <Building2 className="h-4 w-4 mr-1" /> {contact.company}
-                </div>
-              )}
             </div>
-            {contact.tags && contact.tags.length > 0 && (
-              <div className="mt-2 flex items-center gap-2">
-                <Tag className="h-4 w-4 text-gray-500" />
-                {contact.tags.map((tag) => (
-                  <span key={tag} className="bg-gray-100 text-gray-800 text-xs px-2 py-0.5 rounded">
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            )}
+          </div>
+          <div className="flex items-start space-x-2">
+            <EditContactDialog contact={contact} />
+            <DeleteContactDialog contact={contact} />
           </div>
         </div>
       </div>
