@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { 
   Inbox, 
   Calendar, 
@@ -28,6 +28,7 @@ import FeaturesShowcase from "@/components/landing/FeaturesShowcase";
 const Index = () => {
   const [scrolled, setScrolled] = useState(false);
   const [animateHero, setAnimateHero] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -45,6 +46,11 @@ const Index = () => {
     };
   }, []);
 
+  const handleAccess = (e: React.MouseEvent) => {
+    e.preventDefault();
+    navigate('/auth');
+  }
+
   return (
     <div className="min-h-screen overflow-hidden">
       {/* Navbar mejorado */}
@@ -52,7 +58,9 @@ const Index = () => {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <span className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">CRM Personal</span>
+              <Link to="/" className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+                CRM Personal
+              </Link>
             </div>
             <div className="hidden md:flex items-center space-x-6">
               <a href="#features" className="text-gray-700 hover:text-primary transition-colors">Características</a>
@@ -60,11 +68,13 @@ const Index = () => {
               <a href="#testimonials" className="text-gray-700 hover:text-primary transition-colors">Testimonios</a>
               <a href="#faq" className="text-gray-700 hover:text-primary transition-colors">FAQ</a>
             </div>
-            <Link to="/auth">
-              <Button variant="outline" className="border-2 border-primary hover:bg-primary/10">
-                Acceder
-              </Button>
-            </Link>
+            <Button 
+              variant="outline" 
+              className="border-2 border-primary hover:bg-primary/10"
+              onClick={handleAccess}
+            >
+              Acceder
+            </Button>
           </div>
         </div>
       </nav>
@@ -96,11 +106,13 @@ const Index = () => {
             </p>
             
             <div className={`flex flex-wrap justify-center gap-4 transition-all duration-700 delay-300 ${animateHero ? 'opacity-100' : 'opacity-0 translate-y-10'}`}>
-              <Link to="/auth">
-                <Button size="lg" className="text-lg py-7 px-10 bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl">
-                  Comenzar gratis <ArrowRight className="ml-2" />
-                </Button>
-              </Link>
+              <Button 
+                size="lg" 
+                className="text-lg py-7 px-10 bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl"
+                onClick={handleAccess}
+              >
+                Comenzar gratis <ArrowRight className="ml-2" />
+              </Button>
               <Button size="lg" variant="outline" className="text-lg py-7 px-10 border-2 hover:bg-gray-50 transition-all duration-300 rounded-xl">
                 Ver demostración
               </Button>
@@ -313,11 +325,14 @@ const Index = () => {
             </p>
             
             <div className="flex flex-col md:flex-row gap-5 justify-center">
-              <Link to="/auth">
-                <Button size="lg" variant="secondary" className="w-full md:w-auto text-lg py-7 px-10 bg-white text-purple-700 hover:bg-gray-100 transition-colors rounded-xl shadow-lg hover:shadow-xl">
-                  Crear cuenta gratis <ArrowRight className="ml-2" />
-                </Button>
-              </Link>
+              <Button 
+                size="lg" 
+                variant="secondary" 
+                className="w-full md:w-auto text-lg py-7 px-10 bg-white text-purple-700 hover:bg-gray-100 transition-colors rounded-xl shadow-lg hover:shadow-xl"
+                onClick={handleAccess}
+              >
+                Crear cuenta gratis <ArrowRight className="ml-2" />
+              </Button>
               <Button size="lg" variant="outline" className="w-full md:w-auto text-lg py-7 px-10 border-2 border-white text-white hover:bg-white/10 transition-colors rounded-xl">
                 Ver demostración
               </Button>

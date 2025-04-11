@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { AtSign, KeyRound, ArrowRight, UserPlus, LogIn } from "lucide-react";
+import { AtSign, KeyRound, ArrowRight, UserPlus, LogIn, ArrowLeft } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { googleClient } from "../integrations/google/googleClient";
 
@@ -125,6 +125,10 @@ const Auth: React.FC = () => {
     }
   };
 
+  const goBack = () => {
+    navigate('/');
+  };
+
   // If the user is already authenticated, redirect to the app
   if (isAuthenticated) {
     return <Navigate to="/app" replace />;
@@ -134,6 +138,15 @@ const Auth: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-purple-50 to-white p-4">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="mb-4 text-gray-600"
+            onClick={goBack}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Volver a la página principal
+          </Button>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
             CRM Personal
           </h1>

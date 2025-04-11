@@ -1,6 +1,5 @@
 
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { useEffect } from "react";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import CrmApp from "./pages/CrmApp";
@@ -38,7 +37,14 @@ function App() {
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
-            <Route path="/app" element={<CrmApp />} />
+            <Route 
+              path="/app" 
+              element={
+                <ProtectedRoute>
+                  <CrmApp />
+                </ProtectedRoute>
+              } 
+            />
             <Route 
               path="/integrations" 
               element={
