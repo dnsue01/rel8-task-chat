@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { CalendarEvent, Email, GoogleAuthConfig, IntegrationSyncState, MatchResult, Task, TaskList } from "../types/integrations";
 import { useCrm } from "./CrmContext";
@@ -107,17 +106,16 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     try {
       const result = await googleClient.initiateGoogleAuth();
       if (result.success && result.data) {
-        // For demo purposes, let's simulate storing the auth config
-        const simulatedConfig = {
-          accessToken: result.data.accessToken || 'simulated_token',
-          refreshToken: 'simulated_refresh_token',
-          expiresAt: Date.now() + 3600 * 1000, // Expires in 1 hour
+        // Real auth config from Google
+        const newConfig = {
+          accessToken: result.data.accessToken,
+          refreshToken: 'not_implemented',
+          expiresAt: Date.now() + 3600 * 1000,
           scope: 'calendar tasks email',
         };
         
-        setGoogleConfig(simulatedConfig);
-        localStorage.setItem('google_auth_config', JSON.stringify(simulatedConfig));
-        localStorage.setItem('google_auth_token', simulatedConfig.accessToken);
+        setGoogleConfig(newConfig);
+        localStorage.setItem('google_auth_config', JSON.stringify(newConfig));
         
         // Also store a flag to indicate connection status
         localStorage.setItem('google_connected', 'true');
@@ -149,6 +147,7 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       localStorage.removeItem('google_tasks');
       localStorage.removeItem('google_task_lists');
       localStorage.removeItem('google_connected');
+      localStorage.removeItem('google_auth_expiry');
       
       // Reset state
       setGoogleConfig(null);
@@ -163,176 +162,94 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
   
-  // Sync calendar events
+  // Sync calendar events - Real implementation using Google API
   const syncCalendarEvents = async (): Promise<void> => {
     try {
-      // In a real app, we would use the actual Google API client
-      // For the demo, we'll simulate fetching events
+      const events = await googleClient.fetchCalendarEvents();
       
-      // This is a simplified example to simulate fetching calendar events
-      const today = new Date();
-      const simulatedEvents: CalendarEvent[] = [];
-      
-      // Generate 10 random events over the next 7 days
-      for (let i = 0; i < 10; i++) {
-        const startDate = new Date(today);
-        startDate.setDate(startDate.getDate() + Math.floor(Math.random() * 7)); // Random day in the next week
-        startDate.setHours(9 + Math.floor(Math.random() * 8), 0, 0); // Between 9 AM and 5 PM
+      if (events.success && events.data) {
+        // Set the events
+        setCalendarEvents(events.data);
         
-        const endDate = new Date(startDate);
-        endDate.setHours(startDate.getHours() + 1 + Math.floor(Math.random() * 3)); // 1-3 hours long
+        // Save to localStorage
+        localStorage.setItem('google_calendar_events', JSON.stringify(events.data));
         
-        simulatedEvents.push({
-          id: `event-${i}`,
-          title: `Evento ${i + 1}`,
-          description: `Descripción del evento ${i + 1}`,
-          startTime: startDate,
-          endTime: endDate,
-          location: Math.random() > 0.5 ? 'Oficina central' : 'Reunión virtual',
-          attendees: ['usuario@ejemplo.com', 'contacto@ejemplo.com']
-        });
+        // Update sync state
+        const newSyncState = { ...syncState, lastCalendarSync: new Date() };
+        setSyncState(newSyncState);
+        localStorage.setItem('integration_sync_state', JSON.stringify(newSyncState));
+      } else {
+        throw new Error("Failed to fetch calendar events");
       }
-      
-      // Real API call would be something like:
-      // const { success, data } = await googleClient.fetchCalendarEvents();
-      // if (success && data) {
-      //   const formattedEvents = data.map(formatGoogleCalendarEvent);
-      //   setCalendarEvents(formattedEvents);
-      // }
-      
-      // Set the simulated events
-      setCalendarEvents(simulatedEvents);
-      
-      // Save to localStorage
-      localStorage.setItem('google_calendar_events', JSON.stringify(simulatedEvents));
-      
-      // Update sync state
-      const newSyncState = { ...syncState, lastCalendarSync: new Date() };
-      setSyncState(newSyncState);
-      localStorage.setItem('integration_sync_state', JSON.stringify(newSyncState));
     } catch (error) {
       console.error('Error syncing calendar events:', error);
       throw error;
     }
   };
 
-  // Sync tasks
+  // Sync tasks - Real implementation using Google API
   const syncTasks = async (): Promise<void> => {
     try {
-      // In a real app, we would use the actual Google API client
-      // First fetch task lists, then fetch tasks for each list
+      // First fetch task lists
+      const taskListsResult = await googleClient.fetchTaskLists();
       
-      // Simulate task lists
-      const simulatedTaskLists: TaskList[] = [
-        { id: 'list-1', title: 'Tareas personales' },
-        { id: 'list-2', title: 'Tareas de trabajo' }
-      ];
-      
-      // Simulate tasks
-      const simulatedTasks: Task[] = [];
-      
-      // Generate tasks for first list (personal)
-      for (let i = 0; i < 5; i++) {
-        const dueDate = new Date();
-        dueDate.setDate(dueDate.getDate() + Math.floor(Math.random() * 14)); // Due in next 14 days
+      if (taskListsResult.success && taskListsResult.data) {
+        // Save task lists
+        setTaskLists(taskListsResult.data);
+        localStorage.setItem('google_task_lists', JSON.stringify(taskListsResult.data));
         
-        simulatedTasks.push({
-          id: `personal-task-${i}`,
-          title: `Tarea personal ${i + 1}`,
-          notes: `Notas para tarea personal ${i + 1}`,
-          due: dueDate,
-          status: Math.random() > 0.3 ? 'needsAction' : 'completed',
-          completed: Math.random() > 0.3 ? false : true
-        });
-      }
-      
-      // Generate tasks for second list (work)
-      for (let i = 0; i < 5; i++) {
-        const dueDate = new Date();
-        dueDate.setDate(dueDate.getDate() + Math.floor(Math.random() * 7)); // Due in next 7 days
+        // Now fetch tasks for each list
+        const allTasks: Task[] = [];
         
-        simulatedTasks.push({
-          id: `work-task-${i}`,
-          title: `Tarea laboral ${i + 1}`,
-          notes: `Notas para tarea laboral ${i + 1}`,
-          due: dueDate,
-          status: Math.random() > 0.5 ? 'needsAction' : 'completed',
-          completed: Math.random() > 0.5 ? false : true
-        });
+        for (const list of taskListsResult.data) {
+          try {
+            const tasksResult = await googleClient.fetchTasks(list.id);
+            
+            if (tasksResult.success && tasksResult.data) {
+              allTasks.push(...tasksResult.data);
+            }
+          } catch (err) {
+            console.error(`Error fetching tasks for list ${list.id}:`, err);
+            // Continue with other lists even if one fails
+          }
+        }
+        
+        // Save all tasks
+        setTasks(allTasks);
+        localStorage.setItem('google_tasks', JSON.stringify(allTasks));
+        
+        // Update sync state
+        const newSyncState = { ...syncState, lastTasksSync: new Date() };
+        setSyncState(newSyncState);
+        localStorage.setItem('integration_sync_state', JSON.stringify(newSyncState));
+      } else {
+        throw new Error("Failed to fetch task lists");
       }
-      
-      // Set the simulated task lists and tasks
-      setTaskLists(simulatedTaskLists);
-      setTasks(simulatedTasks);
-      
-      // Save to localStorage
-      localStorage.setItem('google_task_lists', JSON.stringify(simulatedTaskLists));
-      localStorage.setItem('google_tasks', JSON.stringify(simulatedTasks));
-      
-      // Update sync state
-      const newSyncState = { ...syncState, lastTasksSync: new Date() };
-      setSyncState(newSyncState);
-      localStorage.setItem('integration_sync_state', JSON.stringify(newSyncState));
     } catch (error) {
       console.error('Error syncing tasks:', error);
       throw error;
     }
   };
   
-  // Sync emails
+  // Sync emails - Real implementation using Google API
   const syncEmails = async (): Promise<void> => {
     try {
-      // In a real app, we would use the actual Google API client
-      // For the demo, we'll simulate fetching emails
+      const emailsResult = await googleClient.fetchEmails();
       
-      // Simulated email data
-      const simulatedEmails: Email[] = [];
-      const today = new Date();
-      
-      // Generate 15 random emails over the past 7 days
-      for (let i = 0; i < 15; i++) {
-        const receivedDate = new Date(today);
-        receivedDate.setDate(receivedDate.getDate() - Math.floor(Math.random() * 7)); // Random day in the past week
-        receivedDate.setHours(8 + Math.floor(Math.random() * 12), 
-                             Math.floor(Math.random() * 60), 
-                             Math.floor(Math.random() * 60));
+      if (emailsResult.success && emailsResult.data) {
+        // Set the emails
+        setEmails(emailsResult.data);
         
-        const simulatedSenders = [
-          'cliente1@ejemplo.com',
-          'proveedor@empresa.com',
-          'soporte@servicio.com',
-          'marketing@newsletter.com',
-          'rrhh@empresa.com'
-        ];
+        // Save to localStorage
+        localStorage.setItem('google_emails', JSON.stringify(emailsResult.data));
         
-        const simulatedSubjects = [
-          'Solicitud de información',
-          'Seguimiento de pedido',
-          'Factura pendiente',
-          'Reunión próxima semana',
-          'Actualización de proyecto'
-        ];
-        
-        simulatedEmails.push({
-          id: `email-${i}`,
-          subject: simulatedSubjects[Math.floor(Math.random() * simulatedSubjects.length)],
-          sender: simulatedSenders[Math.floor(Math.random() * simulatedSenders.length)],
-          recipients: ['tu@empresa.com'],
-          content: `Este es el contenido del correo ${i + 1}. Lorem ipsum dolor sit amet, consectetur adipiscing elit.`,
-          receivedAt: receivedDate,
-        });
+        // Update sync state
+        const newSyncState = { ...syncState, lastEmailSync: new Date() };
+        setSyncState(newSyncState);
+        localStorage.setItem('integration_sync_state', JSON.stringify(newSyncState));
+      } else {
+        throw new Error("Failed to fetch emails");
       }
-      
-      // Set the simulated emails
-      setEmails(simulatedEmails);
-      
-      // Save to localStorage
-      localStorage.setItem('google_emails', JSON.stringify(simulatedEmails));
-      
-      // Update sync state
-      const newSyncState = { ...syncState, lastEmailSync: new Date() };
-      setSyncState(newSyncState);
-      localStorage.setItem('integration_sync_state', JSON.stringify(newSyncState));
     } catch (error) {
       console.error('Error syncing emails:', error);
       throw error;
