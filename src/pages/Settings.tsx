@@ -3,27 +3,47 @@ import React, { useState } from "react";
 import Layout from "../components/layout/Layout";
 import { useCrm } from "../context/CrmContext";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { toast } from "@/components/ui/use-toast";
+import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/components/ui/use-toast";
+import { CircleUserRound, Mail, Upload } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { useIntegrations } from "../context/IntegrationsContext";
 
-const Settings = () => {
-  const { currentUser } = useCrm();
+const Settings: React.FC = () => {
+  const { currentUser, updateUserProfile } = useCrm();
+  const { isGoogleConnected, disconnectGoogleCalendar } = useIntegrations();
+  const { toast } = useToast();
+  
   const [name, setName] = useState(currentUser?.name || "");
   const [email, setEmail] = useState(currentUser?.email || "");
-  const [notifications, setNotifications] = useState({
-    email: true,
-    browser: true,
-    calendar: true,
-  });
-  const [theme, setTheme] = useState("system");
-  const [language, setLanguage] = useState("es");
+  const [updating, setUpdating] = useState(false);
 
+  const handleUpdateProfile = () => {
+    setUpdating(true);
+    
+    // Simulación de actualización
+    setTimeout(() => {
+      updateUserProfile({
+        ...currentUser,
+        name,
+        email
+      });
+      
+      toast({
+        title: "Perfil actualizado",
+        description: "Tu información de perfil ha sido actualizada exitosamente."
+      });
+      
+      setUpdating(false);
+    }, 1000);
+  };
+
+  // Generador de iniciales para el avatar
   const getInitials = (name: string): string => {
     return name
       .split(" ")
@@ -31,243 +51,165 @@ const Settings = () => {
       .join("")
       .toUpperCase();
   };
-
-  const handleSaveProfile = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Aquí iría la lógica para guardar el perfil
-    toast({
-      title: "Perfil actualizado",
-      description: "Tus cambios han sido guardados exitosamente.",
-    });
-  };
-
-  const handleSavePreferences = () => {
-    // Aquí iría la lógica para guardar las preferencias
-    toast({
-      title: "Preferencias actualizadas",
-      description: "Tus preferencias han sido guardadas exitosamente.",
-    });
-  };
-
+  
   return (
-    <Layout hideSidebar>
-      <div className="container mx-auto py-10 px-4">
-        <h1 className="text-3xl font-bold mb-8">Configuración</h1>
-
-        <Tabs defaultValue="profile" className="max-w-4xl">
-          <TabsList className="mb-8">
+    <Layout>
+      <div className="container py-8 max-w-4xl">
+        <h1 className="text-3xl font-bold mb-2">Configuración</h1>
+        <p className="text-muted-foreground mb-6">Gestiona tu cuenta y preferencias</p>
+        
+        <Tabs defaultValue="profile" className="space-y-6">
+          <TabsList className="mb-6">
             <TabsTrigger value="profile">Perfil</TabsTrigger>
-            <TabsTrigger value="preferences">Preferencias</TabsTrigger>
-            <TabsTrigger value="security">Seguridad</TabsTrigger>
+            <TabsTrigger value="account">Cuenta</TabsTrigger>
+            <TabsTrigger value="integrations">Integraciones</TabsTrigger>
           </TabsList>
-
+          
           <TabsContent value="profile">
             <Card>
               <CardHeader>
                 <CardTitle>Información de Perfil</CardTitle>
                 <CardDescription>
-                  Actualiza tu información personal y foto de perfil.
+                  Actualiza tu información personal y foto de perfil
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSaveProfile} className="space-y-6">
-                  <div className="flex items-center space-x-6 mb-6">
+              <CardContent className="space-y-6">
+                <div className="flex flex-col md:flex-row gap-6">
+                  <div className="flex flex-col items-center">
                     <Avatar className="h-24 w-24">
-                      <AvatarImage src={currentUser?.avatar} />
-                      <AvatarFallback className="text-2xl bg-primary/10 text-primary">
-                        {getInitials(name)}
+                      <AvatarImage src={currentUser.avatar_url} />
+                      <AvatarFallback className="text-xl bg-primary/10 text-primary">
+                        {getInitials(currentUser.name)}
                       </AvatarFallback>
                     </Avatar>
-                    <div>
-                      <Button type="button" variant="outline" className="mb-2">
-                        Cambiar foto
-                      </Button>
-                      <p className="text-sm text-gray-500">
-                        JPG, GIF o PNG. Máximo 1MB.
-                      </p>
+                    <Button variant="outline" size="sm" className="mt-4">
+                      <Upload className="mr-2 h-4 w-4" /> Cambiar foto
+                    </Button>
+                  </div>
+                  
+                  <div className="space-y-4 flex-1">
+                    <div className="grid gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="name">Nombre completo</Label>
+                        <Input 
+                          id="name" 
+                          value={name} 
+                          onChange={(e) => setName(e.target.value)} 
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="email">Correo electrónico</Label>
+                        <Input 
+                          id="email" 
+                          type="email" 
+                          value={email} 
+                          onChange={(e) => setEmail(e.target.value)} 
+                        />
+                      </div>
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Nombre</Label>
-                      <Input
-                        id="name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="Tu nombre"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="tu@email.com"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end">
-                    <Button type="submit">Guardar cambios</Button>
-                  </div>
-                </form>
+                </div>
               </CardContent>
+              <CardFooter className="flex justify-end">
+                <Button onClick={handleUpdateProfile} disabled={updating}>
+                  {updating ? "Actualizando..." : "Guardar cambios"}
+                </Button>
+              </CardFooter>
             </Card>
           </TabsContent>
-
-          <TabsContent value="preferences">
+          
+          <TabsContent value="account">
             <Card>
               <CardHeader>
-                <CardTitle>Preferencias</CardTitle>
+                <CardTitle>Cuenta</CardTitle>
                 <CardDescription>
-                  Personaliza tu experiencia de usuario.
+                  Gestiona la configuración de tu cuenta
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium">Tema</h3>
-                        <p className="text-sm text-gray-500">
-                          Selecciona el tema de la aplicación
-                        </p>
-                      </div>
-                      <Select value={theme} onValueChange={setTheme}>
-                        <SelectTrigger className="w-[180px]">
-                          <SelectValue placeholder="Selecciona tema" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="light">Claro</SelectItem>
-                          <SelectItem value="dark">Oscuro</SelectItem>
-                          <SelectItem value="system">Sistema</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium">Idioma</h3>
-                        <p className="text-sm text-gray-500">
-                          Selecciona tu idioma preferido
-                        </p>
-                      </div>
-                      <Select value={language} onValueChange={setLanguage}>
-                        <SelectTrigger className="w-[180px]">
-                          <SelectValue placeholder="Selecciona idioma" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="es">Español</SelectItem>
-                          <SelectItem value="en">English</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-3">
-                      <h3 className="font-medium">Notificaciones</h3>
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="email-notifications">Correo electrónico</Label>
-                          <p className="text-sm text-gray-500">
-                            Recibir notificaciones por email
-                          </p>
-                        </div>
-                        <Switch
-                          id="email-notifications"
-                          checked={notifications.email}
-                          onCheckedChange={(checked) =>
-                            setNotifications({ ...notifications, email: checked })
-                          }
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="browser-notifications">Navegador</Label>
-                          <p className="text-sm text-gray-500">
-                            Mostrar notificaciones en el navegador
-                          </p>
-                        </div>
-                        <Switch
-                          id="browser-notifications"
-                          checked={notifications.browser}
-                          onCheckedChange={(checked) =>
-                            setNotifications({ ...notifications, browser: checked })
-                          }
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="calendar-notifications">Calendario</Label>
-                          <p className="text-sm text-gray-500">
-                            Sincronizar eventos con tu calendario
-                          </p>
-                        </div>
-                        <Switch
-                          id="calendar-notifications"
-                          checked={notifications.calendar}
-                          onCheckedChange={(checked) =>
-                            setNotifications({ ...notifications, calendar: checked })
-                          }
-                        />
-                      </div>
-                    </div>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <h3 className="text-lg font-medium">Correo electrónico verificado</h3>
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-green-500" />
+                    <span className="text-sm">{currentUser.email}</span>
+                    <Badge variant="outline" className="ml-2 bg-green-50 text-green-700">Verificado</Badge>
                   </div>
-
-                  <div className="flex justify-end">
-                    <Button onClick={handleSavePreferences}>Guardar preferencias</Button>
-                  </div>
+                </div>
+                
+                <Separator className="my-4" />
+                
+                <div className="space-y-2">
+                  <h3 className="text-lg font-medium">Cambiar contraseña</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Para mayor seguridad, te recomendamos cambiar tu contraseña regularmente
+                  </p>
+                  <Button variant="outline" className="mt-2">Cambiar contraseña</Button>
+                </div>
+                
+                <Separator className="my-4" />
+                
+                <div className="space-y-2">
+                  <h3 className="text-lg font-medium text-destructive">Eliminar cuenta</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Al eliminar tu cuenta, perderás permanentemente todos tus datos
+                  </p>
+                  <Button variant="destructive" className="mt-2">Eliminar cuenta</Button>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
-
-          <TabsContent value="security">
+          
+          <TabsContent value="integrations">
             <Card>
               <CardHeader>
-                <CardTitle>Seguridad</CardTitle>
+                <CardTitle>Integraciones</CardTitle>
                 <CardDescription>
-                  Administra tu contraseña y seguridad de la cuenta.
+                  Gestiona tus servicios conectados
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <form className="space-y-6">
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="current-password">Contraseña actual</Label>
-                      <Input
-                        id="current-password"
-                        type="password"
-                        placeholder="••••••••••"
-                      />
+              <CardContent className="space-y-4">
+                <div className="border rounded-lg p-4">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                      <div className="flex gap-1">
+                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                          <Calendar className="h-4 w-4 text-blue-500" />
+                        </div>
+                        <div className="w-8 h-8 bg-red-100 rounded-full -ml-3 flex items-center justify-center">
+                          <Mail className="h-4 w-4 text-red-500" />
+                        </div>
+                      </div>
+                      <div>
+                        <h3 className="font-medium">Google (Calendario y Gmail)</h3>
+                        <p className="text-sm text-gray-500">
+                          {isGoogleConnected ? 'Conectado' : 'No conectado'}
+                        </p>
+                      </div>
                     </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="new-password">Nueva contraseña</Label>
-                      <Input
-                        id="new-password"
-                        type="password"
-                        placeholder="••••••••••"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="confirm-password">Confirmar contraseña</Label>
-                      <Input
-                        id="confirm-password"
-                        type="password"
-                        placeholder="••••••••••"
-                      />
-                    </div>
+                    {isGoogleConnected ? (
+                      <Button variant="outline" onClick={disconnectGoogleCalendar}>
+                        Desconectar
+                      </Button>
+                    ) : (
+                      <Button onClick={() => window.location.href = '/integrations'}>
+                        Conectar
+                      </Button>
+                    )}
                   </div>
-
-                  <div className="flex justify-end">
-                    <Button type="button">Actualizar contraseña</Button>
+                  <div className="mt-4 text-sm text-gray-500">
+                    <p>
+                      La integración con Google te permite sincronizar tu calendario y correo,
+                      para mantener toda tu información organizada en un solo lugar.
+                    </p>
+                    <Button 
+                      variant="link" 
+                      className="p-0 h-auto text-sm"
+                      onClick={() => window.location.href = '/integrations'}
+                    >
+                      Configurar en detalle →
+                    </Button>
                   </div>
-                </form>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

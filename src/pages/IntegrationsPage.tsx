@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import Layout from "../components/layout/Layout";
 import { useIntegrations } from "../context/IntegrationsContext";
@@ -6,7 +5,7 @@ import { useCrm } from "../context/CrmContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, Mail, RefreshCw, Link2, AlertTriangle, ExternalLink, Globe, ChevronRight } from "lucide-react";
+import { Calendar, Mail, RefreshCw, Link2, AlertTriangle, ExternalLink, Globe, ChevronRight, Info } from "lucide-react";
 import { formatDistanceToNow, format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { CalendarEvent, Email, MatchResult } from "../types/integrations";
@@ -72,6 +71,26 @@ const IntegrationsPage: React.FC = () => {
       <div className="container py-8">
         <h1 className="text-3xl font-bold mb-2">Integraciones</h1>
         <p className="text-gray-500 mb-6">Conecta tus servicios de Google para sincronizar tu información</p>
+        
+        {/* Integration Status Alert */}
+        <Alert className="mb-6 bg-blue-50 border-blue-200">
+          <Info className="h-4 w-4 text-blue-500" />
+          <AlertTitle>Estado de la integración</AlertTitle>
+          <AlertDescription>
+            <p className="mb-2">
+              Esta es una <strong>demostración simulada</strong> de la integración con Google. En una aplicación de producción:
+            </p>
+            <ul className="list-disc list-inside space-y-1 mb-2">
+              <li>La aplicación utilizaría la API de Google a través de Supabase Edge Functions</li>
+              <li>El proceso de OAuth de Google sería manejado de forma segura</li>
+              <li>Tus datos se sincronizarían en tiempo real desde tu cuenta real</li>
+            </ul>
+            <p>
+              Para implementar esta funcionalidad completamente, necesitarías configurar claves de API de Google
+              en Supabase y crear Edge Functions seguras para la comunicación con las APIs de Google.
+            </p>
+          </AlertDescription>
+        </Alert>
         
         {/* Connection Status Card */}
         <Card className="mb-8 overflow-hidden border-t-4 border-t-primary">
@@ -223,8 +242,13 @@ const IntegrationsPage: React.FC = () => {
               </ul>
               <p className="mb-4">
                 <strong>Nota:</strong> Esta es una demostración y por el momento usa datos simulados. 
-                En una versión real, te redirigiría al flujo de autenticación de Google.
+                En una versión real, la aplicación:
               </p>
+              <ul className="list-disc list-inside space-y-1 mb-4">
+                <li>Te redirigiría al flujo de autenticación de Google</li>
+                <li>Utilizaría Supabase Edge Functions para manejar la comunicación segura con las APIs</li>
+                <li>Almacenaría de forma segura los tokens de acceso en tu base de datos Supabase</li>
+              </ul>
               <Button 
                 onClick={handleConnect} 
                 className="mt-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
@@ -232,7 +256,7 @@ const IntegrationsPage: React.FC = () => {
               >
                 {!connecting ? (
                   <>
-                    <Globe className="mr-2 h-4 w-4" /> Conectar con Google
+                    <Globe className="mr-2 h-4 w-4" /> Conectar con Google (Simulación)
                   </>
                 ) : (
                   <>

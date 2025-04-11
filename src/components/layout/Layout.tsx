@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -138,7 +137,7 @@ const Layout: React.FC<LayoutProps> = ({ children, hideSidebar = false }) => {
                 <div className="flex items-center border-l pl-4 ml-2">
                   <div className="flex items-center mr-4 cursor-pointer" onClick={() => navigate('/settings')}>
                     <Avatar className="h-8 w-8 mr-2">
-                      <AvatarImage src={currentUser.avatar} />
+                      <AvatarImage src={currentUser.avatar_url} />
                       <AvatarFallback className="bg-primary/10 text-primary">
                         {getInitials(currentUser.name)}
                       </AvatarFallback>
