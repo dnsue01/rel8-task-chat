@@ -4,18 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, Plus, ArrowLeft } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { useCrm } from "../../context/CrmContext";
 import { Contact } from "@/types";
 import { useIsMobile } from "@/hooks/use-mobile";
 import NewContactForm from "../contacts/NewContactForm";
+import ImportContactsDialog from "../contacts/ImportContactsDialog";
 
 interface ContactItemProps {
   contact: Contact;
@@ -29,10 +22,12 @@ const ContactItem: React.FC<ContactItemProps> = ({ contact, isActive, onClick })
     switch (status.toLowerCase()) {
       case "lead":
         return "bg-yellow-400";
-      case "customer":
+      case "client":
         return "bg-green-400";
-      case "opportunity":
+      case "collaborator":
         return "bg-purple-400";
+      case "personal":
+        return "bg-gray-400";
       default:
         return "bg-gray-400";
     }
@@ -68,9 +63,8 @@ const ContactItem: React.FC<ContactItemProps> = ({ contact, isActive, onClick })
 };
 
 const ContactSidebar = () => {
-  const { contacts, setActiveContactId, activeContactId, addContact } = useCrm();
+  const { contacts, setActiveContactId, activeContactId } = useCrm();
   const [searchTerm, setSearchTerm] = useState("");
-  const [isNewContactDialogOpen, setIsNewContactDialogOpen] = useState(false);
   const isMobile = useIsMobile();
 
   // Filter contacts based on search term
@@ -83,8 +77,8 @@ const ContactSidebar = () => {
     setActiveContactId(null);
   };
 
-  const handleNewContactSuccess = () => {
-    setIsNewContactDialogOpen(false);
+  const handleContactsChange = () => {
+    // Este método se llamará después de agregar o importar contactos
   };
 
   return (
@@ -104,25 +98,19 @@ const ContactSidebar = () => {
       <div className="p-3 sm:p-4 border-b">
         <div className="flex justify-between mb-3 sm:mb-4">
           <h2 className="text-lg sm:text-xl font-bold">Contactos</h2>
-          <Dialog open={isNewContactDialogOpen} onOpenChange={setIsNewContactDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="h-8 w-8">
-                <Plus className="h-4 w-4" />
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Nuevo Contacto</DialogTitle>
-                <DialogDescription>
-                  Crea un nuevo contacto para tu CRM.
-                </DialogDescription>
-              </DialogHeader>
-              <NewContactForm onSuccess={handleNewContactSuccess} />
-            </DialogContent>
-          </Dialog>
+          <div className="flex space-x-2">
+            <NewContactForm 
+              trigger={
+                <Button size="sm" className="h-8 w-8">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              }
+              onSuccess={handleContactsChange}
+            />
+          </div>
         </div>
 
-        <div className="relative">
+        <div className="relative mb-2">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
           <Input
             className="pl-8"
@@ -130,6 +118,11 @@ const ContactSidebar = () => {
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
           />
+        </div>
+        
+        <div className="flex justify-between items-center">
+          <p className="text-sm text-gray-500">{filteredContacts.length} contactos</p>
+          <ImportContactsDialog onSuccess={handleContactsChange} />
         </div>
       </div>
 

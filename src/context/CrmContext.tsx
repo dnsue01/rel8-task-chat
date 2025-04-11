@@ -13,8 +13,9 @@ type CrmContextType = {
   isAuthenticated: boolean;
   currentUser: User | null;
   
-  setActiveContactId: (id: string) => void;
+  setActiveContactId: (id: string | null) => void;
   addContact: (contact: Omit<Contact, "id" | "lastActivity">) => Promise<void>;
+  addContacts: (contacts: Omit<Contact, "id" | "lastActivity">[]) => Promise<void>;
   getContactById: (id: string) => Contact | undefined;
   
   addTask: (task: Omit<Task, "id" | "createdAt" | "completedAt">) => void;
@@ -282,10 +283,27 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       lastActivity: new Date(),
       ...contact
     };
-    setContacts([...contacts, newContact]);
+    setContacts(prevContacts => [...prevContacts, newContact]);
     if (contacts.length === 0) {
       setActiveContactId(newContact.id);
     }
+    return Promise.resolve();
+  };
+
+  const addContacts = async (contactsToAdd: Omit<Contact, "id" | "lastActivity">[]) => {
+    const newContacts = contactsToAdd.map(contact => ({
+      id: uuidv4(),
+      lastActivity: new Date(),
+      ...contact
+    }));
+    
+    setContacts(prevContacts => [...prevContacts, ...newContacts]);
+    
+    if (contacts.length === 0 && newContacts.length > 0) {
+      setActiveContactId(newContacts[0].id);
+    }
+    
+    return Promise.resolve();
   };
 
   const getTasksForContact = (contactId: string) => {
@@ -412,6 +430,7 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     currentUser,
     setActiveContactId,
     addContact,
+    addContacts,
     getContactById,
     addTask,
     updateTask,
