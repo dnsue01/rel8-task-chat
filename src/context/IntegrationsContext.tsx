@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { CalendarEvent, Email, GoogleAuthConfig, IntegrationSyncState, MatchResult } from "../types/integrations";
 import { useCrm } from "./CrmContext";
@@ -59,7 +58,6 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       if (savedGoogleConfig) setGoogleConfig(JSON.parse(savedGoogleConfig));
       if (savedCalendarEvents) {
         const parsedEvents = JSON.parse(savedCalendarEvents) as CalendarEvent[];
-        // Convert ISO strings back to Date objects
         setCalendarEvents(parsedEvents.map(event => ({
           ...event,
           startTime: parseISO(event.startTime as unknown as string),
