@@ -269,6 +269,26 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setNotes(sampleNotes);
   };
 
+  const updateUser = (user: User) => {
+    if (!user) return;
+    
+    setCurrentUser(user);
+    localStorage.setItem('crm_user', JSON.stringify(user));
+    
+    const usersData = localStorage.getItem('crm_users');
+    if (usersData) {
+      try {
+        const users = JSON.parse(usersData);
+        const updatedUsers = users.map((u: any) => 
+          u.id === user.id ? { ...u, name: user.name, email: user.email, avatar_url: user.avatar_url } : u
+        );
+        localStorage.setItem('crm_users', JSON.stringify(updatedUsers));
+      } catch (error) {
+        console.error("Error updating user data:", error);
+      }
+    }
+  };
+
   useEffect(() => {
     if (isAuthenticated && !isLoading && currentUser) {
       saveUserData();
