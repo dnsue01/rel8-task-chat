@@ -29,13 +29,19 @@ function findPotentialContactMatches(text, contacts) {
     
     // Check for name match
     if (name && textLower.includes(name)) {
-      matches.push(contact.name);
+      matches.push({
+        name: contact.name,
+        id: contact.id
+      });
     }
     
     // Check for email match
     if (email && textLower.includes(email)) {
-      if (!matches.includes(contact.name)) {
-        matches.push(contact.name);
+      if (!matches.some(match => match.name === contact.name)) {
+        matches.push({
+          name: contact.name,
+          id: contact.id
+        });
       }
     }
   });
@@ -219,12 +225,36 @@ serve(async (req) => {
               const notesMatches = findPotentialContactMatches(task.notes, crm_contacts || []);
               
               // Combine unique matches
-              const allMatches = [...new Set([...titleMatches, ...notesMatches])];
+              const allMatchesMap = new Map();
+              
+              // Add title matches
+              titleMatches.forEach(match => {
+                allMatchesMap.set(match.name, match);
+              });
+              
+              // Add notes matches
+              notesMatches.forEach(match => {
+                allMatchesMap.set(match.name, match);
+              });
+              
+              // Convert map back to array
+              const allMatches = Array.from(allMatchesMap.values());
+              
+              // Create contact association options with names
+              const contactOptions = allMatches.map(match => match.name);
+              if (contactOptions.length > 0) {
+                contactOptions.push("Nuevo contacto");
+              }
+              
+              // If we have exactly one match, select it automatically
+              const selectedContact = allMatches.length === 1 ? allMatches[0].name : null;
+              const selectedContactId = allMatches.length === 1 ? allMatches[0].id : null;
               
               // Create contact association options
-              const contactAssociation = allMatches.length > 0 ? {
-                options: [...allMatches, "Nuevo contacto"],
-                selected: null
+              const contactAssociation = contactOptions.length > 0 ? {
+                options: contactOptions,
+                selected: selectedContact,
+                contactId: selectedContactId
               } : undefined;
               
               return {
@@ -326,6 +356,16 @@ serve(async (req) => {
         // Use due date if available, otherwise use current date
         const taskDate = task.due ? new Date(task.due) : new Date();
         
+        // Prepare the contact suggestions from the task's contactAssociation
+        let contactInfo = null;
+        if (task.contactAssociation) {
+          contactInfo = {
+            sugerencias: task.contactAssociation.options,
+            seleccionado: task.contactAssociation.selected,
+            contactId: task.contactAssociation.contactId
+          };
+        }
+        
         processedEvents.push({
           id: task.id,
           tipo: "Tarea",
@@ -334,9 +374,7 @@ serve(async (req) => {
           hora_fin: new Date(taskDate.getTime() + 30 * 60000).toISOString(), // Add 30 minutes
           participantes: [],
           descripcion: task.notes || "",
-          contacto_vinculado: task.contactAssociation ? { 
-            sugerencias: task.contactAssociation.options 
-          } : null,
+          contacto_vinculado: contactInfo,
           accion: task.contactAssociation ? "asociar_a_contacto" : null,
           event_data: task,
           link: task.link

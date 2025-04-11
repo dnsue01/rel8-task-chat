@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { toast } from "react-toastify";
 
 const IntegrationsPage: React.FC = () => {
   const { 
@@ -687,12 +688,46 @@ interface TaskCardProps {
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({ task, notes, onLinkNote }) => {
-  const { contacts } = useCrm();
+  const { contacts, addTaskToContact } = useCrm();
   const linkedNote = notes.find(n => n.id === task.linkedNoteId);
   const [selectedContact, setSelectedContact] = useState<string | null>(task.contactAssociation?.selected || null);
   
   const handleContactSelect = (contactName: string) => {
     setSelectedContact(contactName);
+    
+    if (contactName !== "Nuevo contacto") {
+      const contactMatch = contacts.find(contact => contact.name === contactName);
+      if (contactMatch) {
+        addTaskToContact({
+          id: task.id,
+          title: task.title,
+          description: task.notes,
+          dueDate: task.due,
+          status: task.status === "completed" ? "completed" : "pending",
+          priority: "medium",
+          contactId: contactMatch.id,
+          completed: task.status === "completed",
+          createdAt: new Date()
+        });
+        
+        const updatedTasks = JSON.parse(localStorage.getItem('google_tasks') || '[]');
+        const taskIndex = updatedTasks.findIndex((t: Task) => t.id === task.id);
+        
+        if (taskIndex !== -1) {
+          updatedTasks[taskIndex].contactAssociation = {
+            ...updatedTasks[taskIndex].contactAssociation,
+            selected: contactName,
+            contactId: contactMatch.id
+          };
+          localStorage.setItem('google_tasks', JSON.stringify(updatedTasks));
+        }
+        
+        toast({
+          title: "Contacto asociado",
+          description: `La tarea "${task.title}" ha sido asociada a ${contactName}`,
+        });
+      }
+    }
   };
   
   return (

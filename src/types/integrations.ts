@@ -33,6 +33,7 @@ export interface Task {
   contactAssociation?: {
     options: string[];
     selected: string | null;
+    contactId?: string; // Added contactId to track the associated contact
   };
 }
 
