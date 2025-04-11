@@ -1,4 +1,3 @@
-
 import { supabase } from "../supabase/client";
 import { getGoogleAccessToken } from "./googleAuth";
 import { CalendarEvent, Email, Task, TaskList, Contact } from "@/types/integrations";
@@ -161,6 +160,21 @@ export const fetchTaskLists = async (): Promise<TaskList[]> => {
 };
 
 /**
+ * Extract URL from text content if present
+ * @param text The text to extract URL from
+ * @returns URL string if found, undefined otherwise
+ */
+const extractUrlFromText = (text: string | undefined): string | undefined => {
+  if (!text) return undefined;
+  
+  // Regex to match URLs starting with http:// or https://
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const matches = text.match(urlRegex);
+  
+  return matches ? matches[0] : undefined;
+};
+
+/**
  * Function to fetch tasks from a specific task list
  * @param listId The ID of the task list
  * @returns Promise with tasks
@@ -190,15 +204,24 @@ export const fetchTasks = async (listId: string): Promise<Task[]> => {
 
     // Transform Google Tasks API response to our Task format
     if (data && data.items) {
-      const tasks: Task[] = data.items.map((item: any) => ({
-        id: item.id,
-        title: item.title || 'Unnamed Task',
-        notes: item.notes || '',
-        due: item.due ? new Date(item.due) : undefined,
-        status: item.status || 'needsAction',
-        completed: item.status === 'completed',
-        listId: listId,
-      }));
+      const tasks: Task[] = data.items.map((item: any) => {
+        // Check if there's a link in title or notes
+        const linkFromTitle = extractUrlFromText(item.title);
+        const linkFromNotes = extractUrlFromText(item.notes);
+        const link = linkFromNotes || linkFromTitle;
+        
+        return {
+          id: item.id,
+          title: item.title || 'Unnamed Task',
+          notes: item.notes || '',
+          due: item.due ? new Date(item.due) : undefined,
+          status: item.status || 'needsAction',
+          completed: item.status === 'completed',
+          listId: listId,
+          updated: item.updated,
+          link: link
+        };
+      });
       return tasks;
     }
     

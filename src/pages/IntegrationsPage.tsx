@@ -695,7 +695,29 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, notes, onLinkNote }) => {
       <div className="flex justify-between items-start">
         <div>
           <h3 className={`font-medium ${task.completed ? 'line-through text-gray-400' : ''}`}>{task.title}</h3>
-          {task.notes && <p className="text-sm text-gray-500 mt-1">{task.notes}</p>}
+          {task.notes && (
+            <p className="text-sm text-gray-500 mt-1">
+              {task.link ? (
+                <>
+                  {task.notes.replace(task.link, '')}
+                  {task.notes.replace(task.link, '').length > 0 && <br />}
+                </>
+              ) : (
+                task.notes
+              )}
+            </p>
+          )}
+          {task.link && (
+            <a 
+              href={task.link} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="text-sm text-blue-600 hover:text-blue-800 underline flex items-center mt-1"
+            >
+              <ExternalLink className="h-3.5 w-3.5 mr-1" />
+              {task.link.length > 50 ? `${task.link.substring(0, 50)}...` : task.link}
+            </a>
+          )}
         </div>
         <div className="text-right">
           {task.due && (

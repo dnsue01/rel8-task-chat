@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, CheckCircle, Clock, Mail, RefreshCw, User, Users, AlertCircle, Phone, Building, Plus } from "lucide-react";
+import { Calendar, CheckCircle, Clock, Mail, RefreshCw, User, Users, AlertCircle, Phone, Building, Plus, ExternalLink } from "lucide-react";
 import { fetchIntegratedCalendarData } from "@/integrations/google/googleApi";
 import { useIntegrations } from "@/context/IntegrationsContext";
 import { useCrm } from "@/context/CrmContext";
@@ -34,6 +34,7 @@ interface IntegratedEvent {
   } | null;
   accion: "vinculado" | "importado_al_crm" | null;
   event_data: any;
+  link?: string;
 }
 
 interface GoogleContact {
@@ -263,6 +264,18 @@ const GoogleIntegratedCalendar: React.FC = () => {
                           <p className="text-sm text-gray-700 mb-3 line-clamp-3">
                             {event.descripcion}
                           </p>
+                        )}
+                        
+                        {event.link && (
+                          <a 
+                            href={event.link} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="text-sm text-blue-600 hover:text-blue-800 underline flex items-center mb-3"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                            {event.link.length > 50 ? `${event.link.substring(0, 50)}...` : event.link}
+                          </a>
                         )}
                         
                         {event.participantes && event.participantes.length > 0 && (

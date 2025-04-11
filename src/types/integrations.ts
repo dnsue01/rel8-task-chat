@@ -28,6 +28,8 @@ export interface Task {
   status: "needsAction" | "completed";
   linkedNoteId?: string;
   listId?: string;
+  link?: string;
+  updated?: string;
 }
 
 export interface TaskList {

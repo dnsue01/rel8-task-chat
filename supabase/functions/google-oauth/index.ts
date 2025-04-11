@@ -1,470 +1,319 @@
-
-// supabase/functions/google-oauth/index.ts
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Function to extract URL from text content if present
+function extractUrlFromText(text) {
+  if (!text) return undefined;
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const matches = text.match(urlRegex);
+  return matches ? matches[0] : undefined;
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const body = await req.json();
-    const { access_token, endpoint, message_id, task_list_id, person_id, contact_ids, crm_contacts } = body;
+    const { access_token, endpoint, contact_ids, crm_contacts } = await req.json();
 
     if (!access_token) {
       return new Response(
         JSON.stringify({ error: "Access token is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
       );
     }
 
-    let url = "";
-    
-    // Determine which Google API to call based on the endpoint parameter
-    switch (endpoint) {
-      case "calendar":
-        // Get calendar events for the next 30 days
-        const today = new Date();
-        const thirtyDaysLater = new Date(today);
-        thirtyDaysLater.setDate(today.getDate() + 30);
-        
-        url = "https://www.googleapis.com/calendar/v3/calendars/primary/events" + 
-              "?maxResults=100" +
-              "&timeMin=" + encodeURIComponent(today.toISOString()) + 
-              "&timeMax=" + encodeURIComponent(thirtyDaysLater.toISOString()) +
-              "&singleEvents=true" +
-              "&orderBy=startTime";
-        break;
-      case "classified_calendar":
-        // Get calendar events for the next 30 days (for classification)
-        const currentDate = new Date();
-        const endDate = new Date(currentDate);
-        endDate.setDate(currentDate.getDate() + 30);
-        
-        url = "https://www.googleapis.com/calendar/v3/calendars/primary/events" + 
-              "?maxResults=100" +
-              "&timeMin=" + encodeURIComponent(currentDate.toISOString()) + 
-              "&timeMax=" + encodeURIComponent(endDate.toISOString()) +
-              "&singleEvents=true" +
-              "&orderBy=startTime";
-        break;
-      case "contacts":
-        // Get user's contacts with more fields
-        url = "https://people.googleapis.com/v1/people/me/connections" + 
-              "?personFields=names,emailAddresses,phoneNumbers,photos,organizations,addresses" +
-              "&pageSize=100";
-        break;
-      case "person":
-        if (!person_id) {
-          return new Response(
-            JSON.stringify({ error: "Person ID is required for person endpoint" }),
-            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        url = `https://people.googleapis.com/v1/${person_id}?personFields=names,emailAddresses,phoneNumbers,organizations,addresses,photos`;
-        break;
-      case "tasks/lists":
-        url = "https://tasks.googleapis.com/tasks/v1/users/@me/lists";
-        break;
-      case "tasks":
-        if (!task_list_id) {
-          return new Response(
-            JSON.stringify({ error: "Task list ID is required for tasks endpoint" }),
-            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        url = `https://tasks.googleapis.com/tasks/v1/lists/${task_list_id}/tasks`;
-        break;
-      case "gmail":
-        url = "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=10";
-        break;
-      case "gmail/message":
-        if (!message_id) {
-          return new Response(
-            JSON.stringify({ error: "Message ID is required for gmail/message endpoint" }),
-            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        url = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message_id}`;
-        break;
-      case "integrated_calendar":
-        // Get calendar events and process with contacts data
-        const now = new Date();
-        const thirtyDaysAfter = new Date(now);
-        thirtyDaysAfter.setDate(now.getDate() + 30);
-        
-        url = "https://www.googleapis.com/calendar/v3/calendars/primary/events" + 
-              "?maxResults=100" +
-              "&timeMin=" + encodeURIComponent(now.toISOString()) + 
-              "&timeMax=" + encodeURIComponent(thirtyDaysAfter.toISOString()) +
-              "&singleEvents=true" +
-              "&orderBy=startTime";
-        break;
-      default:
-        return new Response(
-          JSON.stringify({ error: "Invalid endpoint specified" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-    }
-
-    console.log(`Calling Google API ${endpoint} endpoint: ${url}`);
-    
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${access_token}`,
-        "Content-Type": "application/json",
-      },
-    });
-
-    const data = await response.json();
-    
-    // Log some basic info about the response
-    console.log(`Google API ${endpoint} response status: ${response.status}`);
-    
-    if (!response.ok) {
-      console.error(`Error from Google API: ${JSON.stringify(data)}`);
-      return new Response(
-        JSON.stringify({ 
-          error: "Error fetching data from Google API", 
-          details: data,
-          url: url // Include the URL for debugging
-        }),
-        { 
-          status: response.status, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
-        }
-      );
-    }
-
-    // If this is a calendar request with classification, process the events
-    if (endpoint === "classified_calendar" && contact_ids) {
-      // Function to classify an event based on its title and description
-      const classifyEvent = (title = "", description = "") => {
-        title = title.toLowerCase();
-        description = description ? description.toLowerCase() : "";
-        const content = title + " " + description;
-        
-        // Event keywords
-        if (content.match(/reunión|evento|cumpleaños|actividad|celebración|fiesta|conferencia|seminario|taller/i)) {
-          return "Evento";
-        }
-        
-        // Task keywords
-        if (content.match(/hacer|pendiente|terminar|entregar|tarea|completar|finalizar|deadline/i)) {
-          return "Tarea";
-        }
-        
-        // Appointment keywords
-        if (content.match(/cita|doctor|psicólogo|entrevista|consulta|médico|dental|dentista|terapia/i)) {
-          return "Agenda de citas";
-        }
-        
-        // Default classification
-        return "Evento";
-      };
-
-      // Function to find a matching contact
-      const findMatchingContact = (event, contacts) => {
-        // Parse contacts from the provided JSON string
-        const contactsList = typeof contacts === 'string' ? JSON.parse(contacts) : contacts;
-        
-        if (!contactsList || contactsList.length === 0) {
-          return null;
-        }
-        
-        // Extract event information
-        const title = event.summary || "";
-        const description = event.description || "";
-        const attendees = event.attendees || [];
-        const attendeeEmails = attendees.map(attendee => attendee.email);
-        
-        // Try to match by email
-        for (const attendeeEmail of attendeeEmails) {
-          const contactByEmail = contactsList.find(
-            contact => contact.email && contact.email.toLowerCase() === attendeeEmail.toLowerCase()
-          );
-          
-          if (contactByEmail) {
-            return {
-              id: contactByEmail.id,
-              nombre: contactByEmail.name,
-              email: contactByEmail.email,
-              match_type: "email"
-            };
-          }
-        }
-        
-        // Try to match by name in title
-        for (const contact of contactsList) {
-          if (contact.name && title.toLowerCase().includes(contact.name.toLowerCase())) {
-            return {
-              id: contact.id,
-              nombre: contact.name,
-              email: contact.email,
-              match_type: "name"
-            };
-          }
-        }
-        
-        // Try to match by phone number in description
-        for (const contact of contactsList) {
-          if (contact.phone && description.includes(contact.phone)) {
-            return {
-              id: contact.id,
-              nombre: contact.name,
-              email: contact.email,
-              match_type: "phone"
-            };
-          }
-        }
-        
-        return null;
-      };
-
-      // Process and classify the calendar events
-      const classifiedEvents = data.items.map(event => {
-        const eventType = classifyEvent(event.summary, event.description);
-        const contactMatch = findMatchingContact(event, contact_ids);
-        
-        return {
-          id: event.id,
-          tipo: eventType,
-          titulo: event.summary || "Sin título",
-          fecha: event.start?.dateTime || event.start?.date,
-          hora_fin: event.end?.dateTime || event.end?.date,
-          participantes: (event.attendees || []).map(attendee => attendee.email),
-          descripcion: event.description || "",
-          contacto_vinculado: contactMatch,
-          event_data: event // Include the full event data for reference
-        };
-      });
-      
-      return new Response(
-        JSON.stringify({ events: classifiedEvents }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Handle integrated calendar endpoint with full contact processing
-    if (endpoint === "integrated_calendar") {
-      // First, fetch Google contacts
-      const contactsResponse = await fetch(
-        "https://people.googleapis.com/v1/people/me/connections?personFields=names,emailAddresses,phoneNumbers,photos,organizations,addresses&pageSize=100",
+    // Handle different endpoints
+    if (endpoint === "classified_calendar") {
+      // Fetch and classify calendar events
+      const calendarResponse = await fetch(
+        "https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=" +
+          new Date().toISOString() +
+          "&timeMax=" +
+          new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() +
+          "&singleEvents=true&orderBy=startTime",
         {
           headers: {
             Authorization: `Bearer ${access_token}`,
-            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!calendarResponse.ok) {
+        throw new Error(`Google Calendar API error: ${calendarResponse.status}`);
+      }
+
+      const calendarData = await calendarResponse.json();
+      
+      // Process and classify events
+      const events = calendarData.items.map((event) => {
+        // Basic event classification logic
+        let eventType = "meeting";
+        let priority = "medium";
+        
+        const title = event.summary?.toLowerCase() || "";
+        const description = event.description?.toLowerCase() || "";
+        
+        if (title.includes("urgent") || description.includes("urgent")) {
+          priority = "high";
+        }
+        
+        if (title.includes("call") || title.includes("chat") || description.includes("call")) {
+          eventType = "call";
+        } else if (title.includes("review") || description.includes("review")) {
+          eventType = "review";
+        }
+        
+        return {
+          id: event.id,
+          title: event.summary || "No title",
+          start: event.start?.dateTime || event.start?.date,
+          end: event.end?.dateTime || event.end?.date,
+          description: event.description || "",
+          location: event.location || "",
+          attendees: event.attendees || [],
+          classification: {
+            type: eventType,
+            priority: priority,
+          },
+        };
+      });
+
+      return new Response(
+        JSON.stringify({ events }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    } 
+    else if (endpoint === "integrated_calendar") {
+      // Fetch calendar events
+      const calendarResponse = await fetch(
+        "https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=" +
+          new Date().toISOString() +
+          "&timeMax=" +
+          new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() +
+          "&singleEvents=true&orderBy=startTime",
+        {
+          headers: {
+            Authorization: `Bearer ${access_token}`,
+          },
+        }
+      );
+
+      if (!calendarResponse.ok) {
+        throw new Error(`Google Calendar API error: ${calendarResponse.status}`);
+      }
+
+      const calendarData = await calendarResponse.json();
+
+      // Fetch Google contacts
+      const contactsResponse = await fetch(
+        "https://people.googleapis.com/v1/people/me/connections?personFields=names,emailAddresses,phoneNumbers,organizations,photos",
+        {
+          headers: {
+            Authorization: `Bearer ${access_token}`,
           },
         }
       );
 
       if (!contactsResponse.ok) {
-        console.error("Failed to fetch contacts:", await contactsResponse.text());
-        return new Response(
-          JSON.stringify({ error: "Error fetching contacts from Google API" }),
-          { 
-            status: contactsResponse.status, 
-            headers: { ...corsHeaders, "Content-Type": "application/json" } 
-          }
-        );
+        throw new Error(`Google People API error: ${contactsResponse.status}`);
       }
 
       const contactsData = await contactsResponse.json();
+
+      // Fetch tasks
+      const tasksListResponse = await fetch(
+        "https://tasks.googleapis.com/tasks/v1/users/@me/lists",
+        {
+          headers: {
+            Authorization: `Bearer ${access_token}`,
+          },
+        }
+      );
+
+      if (!tasksListResponse.ok) {
+        throw new Error(`Google Tasks API error: ${tasksListResponse.status}`);
+      }
+
+      const tasksListData = await tasksListResponse.json();
       
-      // Process Google contacts into a simpler format
-      const googleContacts = contactsData.connections ? contactsData.connections.map(contact => {
-        const name = contact.names && contact.names.length > 0 
-          ? contact.names[0].displayName 
-          : 'Sin nombre';
+      // Process Google contacts
+      const googleContacts = contactsData.connections?.map((contact) => {
+        const name = contact.names?.[0]?.displayName || "Sin nombre";
+        const email = contact.emailAddresses?.[0]?.value || "";
+        const phone = contact.phoneNumbers?.[0]?.value || "";
+        const company = contact.organizations?.[0]?.name || "";
+        const photoUrl = contact.photos?.[0]?.url || "";
         
-        const email = contact.emailAddresses && contact.emailAddresses.length > 0
-          ? contact.emailAddresses[0].value
-          : '';
-        
-        const phone = contact.phoneNumbers && contact.phoneNumbers.length > 0
-          ? contact.phoneNumbers[0].value
-          : '';
-
-        const photoUrl = contact.photos && contact.photos.length > 0 && !contact.photos[0].default
-          ? contact.photos[0].url
-          : null;
-
-        const company = contact.organizations && contact.organizations.length > 0
-          ? contact.organizations[0].name
-          : '';
-
         return {
           google_id: contact.resourceName,
           name,
           email,
           phone,
-          photo_url: photoUrl,
           company,
-          source: 'google'
+          photo_url: photoUrl,
+          source: "google",
         };
-      }) : [];
+      }) || [];
 
-      // Parse CRM contacts from the provided input
-      const crmContactsList = crm_contacts || [];
+      // Get all tasks from all lists
+      const allTasks = [];
+      for (const list of tasksListData.items || []) {
+        const tasksResponse = await fetch(
+          `https://tasks.googleapis.com/tasks/v1/lists/${list.id}/tasks`,
+          {
+            headers: {
+              Authorization: `Bearer ${access_token}`,
+            },
+          }
+        );
+
+        if (tasksResponse.ok) {
+          const tasksData = await tasksResponse.json();
+          if (tasksData.items) {
+            allTasks.push(...tasksData.items.map(task => ({
+              ...task,
+              listId: list.id,
+              listTitle: list.title
+            })));
+          }
+        }
+      }
+
+      // Process and integrate events with contacts
+      const processedEvents = [];
       
-      // Function to classify an event
-      const classifyEvent = (title = "", description = "") => {
-        title = title.toLowerCase();
-        description = description ? description.toLowerCase() : "";
-        const content = title + " " + description;
+      // Process calendar events
+      for (const event of calendarData.items || []) {
+        if (event.status === "cancelled") continue;
         
-        // Event keywords
-        if (content.match(/reunión|evento|cumpleaños|actividad|celebración|fiesta|conferencia|seminario|taller/i)) {
-          return "Evento";
-        }
+        const eventAttendees = event.attendees || [];
+        let matchedContact = null;
         
-        // Task keywords
-        if (content.match(/hacer|pendiente|terminar|entregar|tarea|completar|finalizar|deadline/i)) {
-          return "Tarea";
-        }
-        
-        // Appointment keywords
-        if (content.match(/cita|doctor|psicólogo|entrevista|consulta|médico|dental|dentista|terapia/i)) {
-          return "Agenda de citas";
-        }
-        
-        // Default classification
-        return "Evento";
-      };
-
-      // Function to find matching contact from CRM or Google contacts
-      const findContactMatch = (event) => {
-        const title = event.summary || "";
-        const description = event.description || "";
-        const attendees = event.attendees || [];
-        const attendeeEmails = attendees.map(attendee => attendee.email);
-        
-        // Check CRM contacts first
-        for (const attendeeEmail of attendeeEmails) {
-          const crmMatch = crmContactsList.find(
-            contact => contact.email && contact.email.toLowerCase() === attendeeEmail.toLowerCase()
+        // Check if any attendee matches a CRM contact
+        for (const attendee of eventAttendees) {
+          const attendeeEmail = attendee.email?.toLowerCase();
+          if (!attendeeEmail) continue;
+          
+          // Check against CRM contacts
+          const crmMatch = crm_contacts?.find(
+            contact => contact.email?.toLowerCase() === attendeeEmail
           );
           
           if (crmMatch) {
-            return {
-              contacto_vinculado: {
-                id: crmMatch.id,
-                nombre: crmMatch.name,
-                email: crmMatch.email,
-                phone: crmMatch.phone,
-                company: crmMatch.company
-              },
-              accion: "vinculado"
+            matchedContact = {
+              id: crmMatch.id,
+              nombre: crmMatch.name,
+              email: crmMatch.email,
+              phone: crmMatch.phone,
+              company: crmMatch.company,
+              notes: crmMatch.notes,
             };
+            break;
           }
-        }
-        
-        // Check name matches in CRM
-        for (const contact of crmContactsList) {
-          if (contact.name && title.toLowerCase().includes(contact.name.toLowerCase())) {
-            return {
-              contacto_vinculado: {
-                id: contact.id,
-                nombre: contact.name,
-                email: contact.email,
-                phone: contact.phone,
-                company: contact.company
-              },
-              accion: "vinculado"
-            };
-          }
-        }
-        
-        // Now check Google contacts
-        for (const attendeeEmail of attendeeEmails) {
+          
+          // Check against Google contacts if no CRM match
           const googleMatch = googleContacts.find(
-            contact => contact.email && contact.email.toLowerCase() === attendeeEmail.toLowerCase()
+            contact => contact.email?.toLowerCase() === attendeeEmail
           );
           
-          if (googleMatch) {
-            return {
-              contacto_vinculado: {
-                id: null, // No CRM ID yet
-                nombre: googleMatch.name,
-                email: googleMatch.email,
-                phone: googleMatch.phone,
-                company: googleMatch.company,
-                photo_url: googleMatch.photo_url,
-                google_id: googleMatch.google_id
-              },
-              accion: "importado_al_crm"
+          if (googleMatch && !matchedContact) {
+            matchedContact = {
+              nombre: googleMatch.name,
+              email: googleMatch.email,
+              phone: googleMatch.phone,
+              company: googleMatch.company,
+              photo_url: googleMatch.photo_url,
+              google_id: googleMatch.google_id,
             };
           }
         }
         
-        // Check Google contacts for name matches
-        for (const googleContact of googleContacts) {
-          if (googleContact.name && title.toLowerCase().includes(googleContact.name.toLowerCase())) {
-            return {
-              contacto_vinculado: {
-                id: null,
-                nombre: googleContact.name,
-                email: googleContact.email,
-                phone: googleContact.phone,
-                company: googleContact.company,
-                photo_url: googleContact.photo_url,
-                google_id: googleContact.google_id
-              },
-              accion: "importado_al_crm"
-            };
-          }
+        // Determine action based on contact match
+        let action = null;
+        if (matchedContact) {
+          action = matchedContact.id ? "vinculado" : "importado_al_crm";
         }
         
-        return { contacto_vinculado: null, accion: null };
-      };
-
-      // Process and classify calendar events
-      const processedEvents = data.items.map(event => {
-        const eventType = classifyEvent(event.summary, event.description);
-        const { contacto_vinculado, accion } = findContactMatch(event);
+        // Determine event type
+        let eventType = "Evento";
+        const title = event.summary?.toLowerCase() || "";
+        const description = event.description?.toLowerCase() || "";
         
-        return {
+        if (title.includes("cita") || title.includes("reunión") || title.includes("meeting")) {
+          eventType = "Agenda de citas";
+        }
+        
+        processedEvents.push({
           id: event.id,
           tipo: eventType,
           titulo: event.summary || "Sin título",
           fecha: event.start?.dateTime || event.start?.date,
           hora_fin: event.end?.dateTime || event.end?.date,
-          participantes: (event.attendees || []).map(attendee => attendee.email),
+          participantes: eventAttendees.map(a => a.email || ""),
           descripcion: event.description || "",
-          contacto_vinculado,
-          accion,
-          event_data: event // Include the full event data for reference
-        };
-      });
-
-      // Prepare the response with both events and contacts
-      const response = {
-        eventos: processedEvents,
-        contactos_google: googleContacts
-      };
+          contacto_vinculado: matchedContact,
+          accion: action,
+          event_data: event,
+        });
+      }
       
+      // Process tasks as events
+      for (const task of allTasks) {
+        if (task.status === "completed") continue;
+        
+        // Extract link from title or notes if present
+        const linkFromTitle = extractUrlFromText(task.title);
+        const linkFromNotes = extractUrlFromText(task.notes);
+        const link = linkFromNotes || linkFromTitle;
+        
+        // Use due date if available, otherwise use current date
+        const taskDate = task.due ? new Date(task.due) : new Date();
+        
+        processedEvents.push({
+          id: task.id,
+          tipo: "Tarea",
+          titulo: task.title || "Sin título",
+          fecha: taskDate.toISOString(),
+          hora_fin: new Date(taskDate.getTime() + 30 * 60000).toISOString(), // Add 30 minutes
+          participantes: [],
+          descripcion: task.notes || "",
+          contacto_vinculado: null,
+          accion: null,
+          event_data: task,
+          link: link
+        });
+      }
+      
+      // Sort events by date
+      processedEvents.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+
       return new Response(
-        JSON.stringify(response),
+        JSON.stringify({ 
+          eventos: processedEvents,
+          contactos_google: googleContacts
+        }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    // For standard requests, just return the data
-    return new Response(
-      JSON.stringify(data),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    else {
+      return new Response(
+        JSON.stringify({ error: "Invalid endpoint" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+      );
+    }
   } catch (error) {
     console.error("Error processing request:", error);
     return new Response(
-      JSON.stringify({ error: "Internal server error", details: error.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ error: error.message }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }
 });
