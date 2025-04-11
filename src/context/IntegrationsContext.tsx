@@ -99,16 +99,16 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, [currentUser, googleConfig, calendarEvents, emails, syncState]);
   
   const connectGoogleCalendar = async () => {
-    // In a real app, this would redirect to Google OAuth flow
-    // For demo purposes, we'll simulate a successful connection with mock data
+    // En una implementación real, esto redirigiría al flujo OAuth de Google
+    // Para fines de demostración, simularemos una conexión exitosa con datos de ejemplo
     try {
-      // Simulate API delay
+      // Simulación de retraso de API
       await new Promise(resolve => setTimeout(resolve, 1500));
       
       const mockGoogleConfig: GoogleAuthConfig = {
         accessToken: "mock-access-token",
         refreshToken: "mock-refresh-token",
-        expiresAt: Date.now() + 3600000, // 1 hour from now
+        expiresAt: Date.now() + 3600000, // 1 hora a partir de ahora
         scope: "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/gmail.readonly"
       };
       
@@ -121,14 +121,14 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       
       toast({
         title: "Cuenta de Google conectada",
-        description: "Tu cuenta de Google ha sido conectada exitosamente."
+        description: "Tu cuenta de Google ha sido conectada exitosamente (simulación)."
       });
       
-      // Sync data automatically after connecting
+      // Sincronizar datos automáticamente después de conectar
       await syncCalendarEvents();
       await syncEmails();
     } catch (error) {
-      console.error("Error connecting to Google:", error);
+      console.error("Error al conectar con Google:", error);
       toast({
         title: "Error de conexión",
         description: "No se pudo conectar con Google. Por favor intenta de nuevo.",
@@ -138,8 +138,13 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
   
   const disconnectGoogleCalendar = () => {
-    // In a real app, this would revoke tokens on Google's side
+    // En una aplicación real, esto revocaría los tokens en Google
     setGoogleConfig(null);
+    // Limpiar eventos y correos al desconectar
+    setCalendarEvents([]);
+    setEmails([]);
+    setSyncState({});
+    
     toast({
       title: "Cuenta de Google desconectada",
       description: "Tu cuenta de Google ha sido desconectada exitosamente."
@@ -157,10 +162,10 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
     
     try {
-      // Simulate API delay
+      // Simulación de retraso de API
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Generate mock calendar events for today
+      // Generar eventos de calendario de ejemplo para hoy
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
@@ -196,7 +201,7 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         lastCalendarSync: new Date()
       });
       
-      // Auto-link events with notes based on title
+      // Auto-vincular eventos con notas basándose en el título
       notes.forEach(note => {
         mockEvents.forEach(event => {
           if (note.content.toLowerCase().includes(event.title.toLowerCase())) {
@@ -210,7 +215,7 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         description: `Se han sincronizado ${mockEvents.length} eventos del calendario.`
       });
     } catch (error) {
-      console.error("Error syncing calendar events:", error);
+      console.error("Error al sincronizar eventos del calendario:", error);
       toast({
         title: "Error de sincronización",
         description: "No se pudieron sincronizar los eventos del calendario.",
@@ -230,10 +235,10 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
     
     try {
-      // Simulate API delay
+      // Simulación de retraso de API
       await new Promise(resolve => setTimeout(resolve, 2500));
       
-      // Generate mock emails for today
+      // Generar correos de ejemplo para hoy
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
@@ -270,7 +275,7 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         lastEmailSync: new Date()
       });
       
-      // Auto-link emails with calendar events based on subject
+      // Auto-vincular correos con eventos del calendario basándose en el asunto
       mockEmails.forEach(email => {
         calendarEvents.forEach(event => {
           if (email.subject.toLowerCase().includes(event.title.toLowerCase()) || 
@@ -285,7 +290,7 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         description: `Se han sincronizado ${mockEmails.length} correos electrónicos.`
       });
     } catch (error) {
-      console.error("Error syncing emails:", error);
+      console.error("Error al sincronizar correos:", error);
       toast({
         title: "Error de sincronización",
         description: "No se pudieron sincronizar los correos electrónicos.",
@@ -365,19 +370,19 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     );
   };
   
-  // Utility function to find potential matches for a note
+  // Función de utilidad para encontrar posibles coincidencias para una nota
   const findMatchesForNote = (noteId: string) => {
     const note = notes.find(n => n.id === noteId);
     if (!note) return [];
     
     const results: MatchResult[] = [];
     
-    // Check for matches with calendar events
+    // Comprobar coincidencias con eventos del calendario
     calendarEvents.forEach(event => {
       let confidence = 0;
       let matchedOn: MatchResult["matchedOn"] = 'title';
       
-      // Match by title/content
+      // Coincidencia por título/contenido
       if (event.title.toLowerCase().includes(note.content.toLowerCase()) || 
           note.content.toLowerCase().includes(event.title.toLowerCase())) {
         confidence += 60;
@@ -389,7 +394,7 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         matchedOn = 'content';
       }
       
-      // Only add if there's a reasonable match
+      // Solo añadir si hay una coincidencia razonable
       if (confidence > 40) {
         results.push({
           eventId: event.id,
@@ -402,26 +407,26 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return results;
   };
   
-  // Utility function to find potential matches for an email
+  // Función de utilidad para encontrar posibles coincidencias para un correo
   const findMatchesForEmail = (emailId: string) => {
     const email = emails.find(e => e.id === emailId);
     if (!email) return [];
     
     const results: MatchResult[] = [];
     
-    // Check for matches with notes
+    // Comprobar coincidencias con notas
     notes.forEach(note => {
       let confidence = 0;
       let matchedOn: MatchResult["matchedOn"] = 'content';
       
-      // Match by content
+      // Coincidencia por contenido
       if (note.content.toLowerCase().includes(email.subject.toLowerCase()) || 
           email.content.toLowerCase().includes(note.content.toLowerCase())) {
         confidence += 50;
         matchedOn = 'content';
       }
       
-      // Only add if there's a reasonable match
+      // Solo añadir si hay una coincidencia razonable
       if (confidence > 40) {
         results.push({
           noteId: note.id,
@@ -431,31 +436,31 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
     });
     
-    // Check for matches with calendar events
+    // Comprobar coincidencias con eventos del calendario
     calendarEvents.forEach(event => {
       let confidence = 0;
       let matchedOn: MatchResult["matchedOn"] = 'title';
       
-      // Match by title
+      // Coincidencia por título
       if (event.title.toLowerCase().includes(email.subject.toLowerCase()) || 
           email.subject.toLowerCase().includes(event.title.toLowerCase())) {
         confidence += 70;
         matchedOn = 'title';
       }
-      // Match by attendees
+      // Coincidencia por asistentes
       else if (event.attendees && 
               event.attendees.includes(email.sender)) {
         confidence += 60;
         matchedOn = 'contacts';
       }
-      // Match by content
+      // Coincidencia por contenido
       else if (event.description && 
               event.description.toLowerCase().includes(email.content.toLowerCase())) {
         confidence += 40;
         matchedOn = 'content';
       }
       
-      // Only add if there's a reasonable match
+      // Solo añadir si hay una coincidencia razonable
       if (confidence > 40) {
         results.push({
           eventId: event.id,
@@ -495,7 +500,7 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 export const useIntegrations = () => {
   const context = useContext(IntegrationsContext);
   if (context === undefined) {
-    throw new Error("useIntegrations must be used within an IntegrationsProvider");
+    throw new Error("useIntegrations debe usarse dentro de un IntegrationsProvider");
   }
   return context;
 };

@@ -3,10 +3,12 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, X, User, LogOut, Calendar, Mail } from "lucide-react";
-import { useIsMobile } from "@/hooks/use-mobile"; // Corregido: Cambiado useMobile a useIsMobile
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useCrm } from "../../context/CrmContext";
 import { useIntegrations } from "../../context/IntegrationsContext";
 import ContactSidebar from "../sidebar/ContactSidebar";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -17,7 +19,7 @@ const Layout: React.FC<LayoutProps> = ({ children, hideSidebar = false }) => {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const { logout, currentUser } = useCrm();
-  const { isGoogleConnected } = useIntegrations();
+  const { isGoogleConnected, syncState } = useIntegrations();
   const [menuOpen, setMenuOpen] = useState(false);
   
   const handleLogout = () => {
@@ -42,7 +44,12 @@ const Layout: React.FC<LayoutProps> = ({ children, hideSidebar = false }) => {
                   {menuOpen ? <X size={20} /> : <Menu size={20} />}
                 </Button>
               )}
-              <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">CRM Personal</span>
+              <span 
+                onClick={() => navigate('/')} 
+                className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent cursor-pointer"
+              >
+                CRM Personal
+              </span>
             </div>
             
             {currentUser && (
@@ -56,21 +63,42 @@ const Layout: React.FC<LayoutProps> = ({ children, hideSidebar = false }) => {
                   Contactos
                 </Button>
                 
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => navigate('/integrations')}
-                  className="flex items-center gap-2 font-medium hover:bg-primary/10"
-                >
-                  <div className="flex gap-1">
-                    <Calendar className="h-4 w-4" />
-                    <Mail className="h-4 w-4" />
-                  </div>
-                  Integraciones
-                  {isGoogleConnected && (
-                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                  )}
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => navigate('/integrations')}
+                        className="flex items-center gap-2 font-medium hover:bg-primary/10"
+                      >
+                        <div className="flex gap-1">
+                          <Calendar className="h-4 w-4" />
+                          <Mail className="h-4 w-4" />
+                        </div>
+                        Integraciones
+                        {isGoogleConnected ? (
+                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs ml-1 px-1.5 py-0">
+                            Conectado
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs ml-1 px-1.5 py-0">
+                            Desconectado
+                          </Badge>
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-xs">
+                      {isGoogleConnected ? (
+                        <>
+                          Último sincronizado: {' '}
+                          {syncState.lastCalendarSync ? 'Calendario ✓' : 'Calendario ✗'}{' / '}
+                          {syncState.lastEmailSync ? 'Emails ✓' : 'Emails ✗'}
+                        </>
+                      ) : 'Conecta tu cuenta de Google para sincronizar calendario y correo'}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
                 
                 <div className="flex items-center border-l pl-4 ml-2">
                   <div className="flex items-center mr-4">
@@ -108,7 +136,6 @@ const Layout: React.FC<LayoutProps> = ({ children, hideSidebar = false }) => {
                 : "w-64 border-r"
             } bg-sidebar shadow-md`}
           >
-            {/* Eliminada la prop onClose que causaba el error */}
             <ContactSidebar />
           </div>
         )}
