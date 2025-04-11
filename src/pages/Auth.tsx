@@ -20,31 +20,63 @@ const Auth: React.FC = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const googleSignInButtonRef = useRef<HTMLDivElement>(null);
+  const googleSignInButtonRegisterRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Render the Google Sign-In button
-    if (googleSignInButtonRef.current) {
-      const handleGoogleResponse = async (response: any) => {
-        try {
-          // Pass the credential to your login function
-          await loginWithGoogle(response.credential);
-          toast({
-            title: "Inicio de sesión exitoso",
-            description: "Bienvenido a tu CRM personal",
-          });
-          navigate("/app");
-        } catch (error) {
-          toast({
-            title: "Error al iniciar sesión con Google",
-            description: error instanceof Error ? error.message : "Error de autenticación",
-            variant: "destructive",
-          });
-        }
-      };
+    // Render Google Sign-In buttons for both login and register tabs
+    const renderGoogleButtons = () => {
+      // Render for login tab
+      if (googleSignInButtonRef.current) {
+        const handleGoogleResponse = async (response: any) => {
+          try {
+            await loginWithGoogle(response.credential);
+            toast({
+              title: "Inicio de sesión exitoso",
+              description: "Bienvenido a tu CRM personal",
+            });
+            navigate("/app");
+          } catch (error) {
+            toast({
+              title: "Error al iniciar sesión con Google",
+              description: error instanceof Error ? error.message : "Error de autenticación",
+              variant: "destructive",
+            });
+          }
+        };
 
-      googleClient.renderGoogleSignInButton("google-signin-button", handleGoogleResponse);
-    }
-  }, []);
+        googleClient.renderGoogleSignInButton("google-signin-button", handleGoogleResponse);
+      }
+
+      // Render for register tab
+      if (googleSignInButtonRegisterRef.current) {
+        const handleGoogleResponseRegister = async (response: any) => {
+          try {
+            await loginWithGoogle(response.credential);
+            toast({
+              title: "Registro exitoso",
+              description: "Bienvenido a tu CRM personal",
+            });
+            navigate("/app");
+          } catch (error) {
+            toast({
+              title: "Error al registrarse con Google",
+              description: error instanceof Error ? error.message : "Error de autenticación",
+              variant: "destructive",
+            });
+          }
+        };
+
+        googleClient.renderGoogleSignInButton("google-signin-button-register", handleGoogleResponseRegister);
+      }
+    };
+
+    // Small delay to ensure DOM elements are ready
+    const timer = setTimeout(() => {
+      renderGoogleButtons();
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [loginWithGoogle, navigate, toast]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,9 +125,9 @@ const Auth: React.FC = () => {
     }
   };
 
-  // This is the fix: Move the redirect after all hooks have been called
+  // If the user is already authenticated, redirect to the app
   if (isAuthenticated) {
-    return <Navigate to="/app" />;
+    return <Navigate to="/app" replace />;
   }
 
   return (
@@ -186,7 +218,8 @@ const Auth: React.FC = () => {
               <TabsContent value="register">
                 <div className="mb-4">
                   <div 
-                    id="google-signin-button-register" 
+                    id="google-signin-button-register"
+                    ref={googleSignInButtonRegisterRef}
                     className="flex justify-center mb-4"
                   ></div>
                 </div>

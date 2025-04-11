@@ -1,5 +1,6 @@
 
-import React from "react";
+import React, { useEffect } from "react";
+import { Navigate } from "react-router-dom";
 import Layout from "../components/layout/Layout";
 import ContactDetail from "../components/contacts/ContactDetail";
 import ContactSidebar from "../components/sidebar/ContactSidebar";
@@ -19,7 +20,12 @@ const LoadingState = () => (
 );
 
 const CrmApp = () => {
-  const { isLoading } = useCrm();
+  const { isLoading, isAuthenticated } = useCrm();
+
+  // Redirect to login if not authenticated
+  if (!isLoading && !isAuthenticated) {
+    return <Navigate to="/auth" replace />;
+  }
 
   if (isLoading) {
     return <LoadingState />;
