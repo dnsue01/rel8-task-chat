@@ -1,7 +1,13 @@
 
 // Real Google API integration that replaces the simulated version
 
-import { loginWithGoogleCalendarAndTasks, logoutFromGoogle, isGoogleAuthenticated } from './googleAuth';
+import { 
+  loginWithGoogleCalendarAndTasks, 
+  logoutFromGoogle, 
+  isGoogleAuthenticated,
+  initGoogleOneTap,
+  renderGoogleSignInButton 
+} from './googleAuth';
 import { fetchGoogleCalendarEvents, fetchGoogleTasks, fetchGmailMessages } from './googleApi';
 import { CalendarEvent, Email } from "../../types/integrations";
 
@@ -35,6 +41,27 @@ export const googleClient = {
       return { success: true };
     } catch (error) {
       console.error("Error disconnecting from Google:", error);
+      return { success: false, error };
+    }
+  },
+
+  // Google Identity Services for login
+  initGoogleOneTap: async (callback: (response: any) => void) => {
+    try {
+      await initGoogleOneTap(GOOGLE_CLIENT_ID, callback);
+      return { success: true };
+    } catch (error) {
+      console.error("Error initializing Google One Tap:", error);
+      return { success: false, error };
+    }
+  },
+
+  renderGoogleSignInButton: async (elementId: string, callback: (response: any) => void) => {
+    try {
+      await renderGoogleSignInButton(GOOGLE_CLIENT_ID, elementId, callback);
+      return { success: true };
+    } catch (error) {
+      console.error("Error rendering Google Sign In button:", error);
       return { success: false, error };
     }
   },

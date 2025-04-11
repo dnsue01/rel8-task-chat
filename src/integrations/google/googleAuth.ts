@@ -6,6 +6,7 @@
 declare global {
   interface Window {
     gapi: any;
+    google: any;
   }
 }
 
@@ -27,6 +28,29 @@ export const loadGoogleApiScript = (): Promise<void> => {
     
     script.onload = () => resolve();
     script.onerror = () => reject(new Error("Failed to load Google API script"));
+    
+    document.body.appendChild(script);
+  });
+};
+
+/**
+ * Loads the Google Identity Services library for OAuth
+ */
+export const loadGoogleIdentityScript = (): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    // Skip if the script is already loaded
+    if (window.google?.accounts) {
+      resolve();
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Failed to load Google Identity Services script"));
     
     document.body.appendChild(script);
   });
@@ -73,6 +97,58 @@ export const loginWithGoogleCalendarAndTasks = async (clientId: string): Promise
 };
 
 /**
+ * Initialize Google One Tap for authentication
+ */
+export const initGoogleOneTap = async (clientId: string, callback: (response: any) => void): Promise<void> => {
+  await loadGoogleIdentityScript();
+
+  if (!window.google?.accounts) {
+    throw new Error("Google Identity Services not loaded");
+  }
+
+  window.google.accounts.id.initialize({
+    client_id: clientId,
+    callback,
+    auto_select: false,
+    cancel_on_tap_outside: true,
+  });
+
+  window.google.accounts.id.prompt();
+};
+
+/**
+ * Render a Google Sign In button in the provided element
+ */
+export const renderGoogleSignInButton = async (
+  clientId: string, 
+  elementId: string,
+  callback: (response: any) => void
+): Promise<void> => {
+  await loadGoogleIdentityScript();
+
+  if (!window.google?.accounts) {
+    throw new Error("Google Identity Services not loaded");
+  }
+
+  window.google.accounts.id.initialize({
+    client_id: clientId,
+    callback,
+  });
+
+  window.google.accounts.id.renderButton(
+    document.getElementById(elementId) as HTMLElement,
+    { 
+      theme: "outline", 
+      size: "large",
+      text: "signin_with",
+      shape: "rectangular",
+      logo_alignment: "center",
+      width: 280
+    }
+  );
+};
+
+/**
  * Check if the user is currently authenticated with Google
  */
 export const isGoogleAuthenticated = (): boolean => {
@@ -98,6 +174,10 @@ export const logoutFromGoogle = async (): Promise<void> => {
   if (window.gapi?.auth2) {
     const authInstance = window.gapi.auth2.getAuthInstance();
     if (authInstance) await authInstance.signOut();
+  }
+  
+  if (window.google?.accounts) {
+    window.google.accounts.id.disableAutoSelect();
   }
   
   localStorage.removeItem('google_auth_token');

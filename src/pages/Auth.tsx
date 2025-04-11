@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useCrm } from "../context/CrmContext";
 import { Button } from "@/components/ui/button";
@@ -9,19 +9,47 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { AtSign, KeyRound, ArrowRight, UserPlus, LogIn } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { googleClient } from "../integrations/google/googleClient";
 
 const Auth: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const { isAuthenticated, login, register } = useCrm();
+  const { isAuthenticated, login, register, loginWithGoogle } = useCrm();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const googleSignInButtonRef = useRef<HTMLDivElement>(null);
 
   // Redirect if already logged in
   if (isAuthenticated) {
     return <Navigate to="/app" />;
   }
+
+  useEffect(() => {
+    // Render the Google Sign-In button
+    if (googleSignInButtonRef.current) {
+      const handleGoogleResponse = async (response: any) => {
+        try {
+          // Pass the credential to your login function
+          await loginWithGoogle(response.credential);
+          toast({
+            title: "Inicio de sesión exitoso",
+            description: "Bienvenido a tu CRM personal",
+          });
+          navigate("/app");
+        } catch (error) {
+          toast({
+            title: "Error al iniciar sesión con Google",
+            description: error instanceof Error ? error.message : "Error de autenticación",
+            variant: "destructive",
+          });
+        }
+      };
+
+      googleClient.renderGoogleSignInButton("google-signin-button", handleGoogleResponse);
+    }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,6 +129,21 @@ const Auth: React.FC = () => {
               </TabsList>
 
               <TabsContent value="login">
+                <div className="mb-4">
+                  <div 
+                    id="google-signin-button" 
+                    ref={googleSignInButtonRef} 
+                    className="flex justify-center mb-4"
+                  ></div>
+                </div>
+
+                <div className="relative mb-4">
+                  <Separator className="my-4" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="bg-white px-2 text-xs text-gray-500">o continuar con email</span>
+                  </div>
+                </div>
+
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div className="grid gap-2">
                     <Label htmlFor="email-login">Email</Label>
@@ -141,6 +184,20 @@ const Auth: React.FC = () => {
               </TabsContent>
 
               <TabsContent value="register">
+                <div className="mb-4">
+                  <div 
+                    id="google-signin-button-register" 
+                    className="flex justify-center mb-4"
+                  ></div>
+                </div>
+
+                <div className="relative mb-4">
+                  <Separator className="my-4" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="bg-white px-2 text-xs text-gray-500">o registrarse con email</span>
+                  </div>
+                </div>
+
                 <form onSubmit={handleRegister} className="space-y-4">
                   <div className="grid gap-2">
                     <Label htmlFor="name">Nombre completo</Label>

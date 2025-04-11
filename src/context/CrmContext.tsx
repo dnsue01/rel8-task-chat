@@ -1,7 +1,9 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { sampleContacts, sampleTasks, sampleNotes } from "../data/sampleData";
 import { Contact, Task, Note, User, TaskStatus } from "../types";
+import { jwtDecode } from "jwt-decode";
 
 type CrmContextType = {
   contacts: Contact[];
@@ -25,6 +27,7 @@ type CrmContextType = {
   getNotesForContact: (contactId: string) => Note[];
   
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: (googleCredential: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   updateUser: (user: User) => void;
@@ -120,6 +123,70 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const loginWithGoogle = async (googleCredential: string): Promise<void> => {
+    setIsLoading(true);
+    
+    try {
+      // Decode the JWT token from Google
+      const decodedToken: any = jwtDecode(googleCredential);
+      
+      if (!decodedToken.email) {
+        throw new Error("No se pudo obtener el email del usuario");
+      }
+      
+      // Check if user exists in our system
+      const usersData = localStorage.getItem('crm_users');
+      const users = usersData ? JSON.parse(usersData) : [];
+      
+      let user = users.find((u: any) => u.email === decodedToken.email);
+      
+      // If user doesn't exist, create a new one
+      if (!user) {
+        const newUser = {
+          id: uuidv4(),
+          name: decodedToken.name || "Usuario de Google",
+          email: decodedToken.email,
+          password: uuidv4(), // Random password for Google users
+          avatar_url: decodedToken.picture,
+          createdAt: new Date(),
+          googleId: decodedToken.sub
+        };
+        
+        users.push(newUser);
+        localStorage.setItem('crm_users', JSON.stringify(users));
+        
+        const { password: _, ...safeUser } = newUser;
+        user = safeUser;
+      } else {
+        // Update existing user's Google info if needed
+        if (!user.googleId || !user.avatar_url) {
+          user.googleId = decodedToken.sub;
+          user.avatar_url = user.avatar_url || decodedToken.picture;
+          
+          // Update the user in the users array
+          const updatedUsers = users.map((u: any) => 
+            u.id === user.id ? {...u, googleId: decodedToken.sub, avatar_url: user.avatar_url || decodedToken.picture} : u
+          );
+          
+          localStorage.setItem('crm_users', JSON.stringify(updatedUsers));
+        }
+        
+        const { password: _, ...safeUser } = user;
+        user = safeUser;
+      }
+      
+      setCurrentUser(user);
+      setIsAuthenticated(true);
+      localStorage.setItem('crm_user', JSON.stringify(user));
+      
+      loadUserData(user.id);
+    } catch (error) {
+      setIsLoading(false);
+      console.error("Error in loginWithGoogle:", error);
+      throw error;
+    }
+  };
+
   const register = async (name: string, email: string, password: string): Promise<void> => {
     setIsLoading(true);
     
@@ -136,6 +203,7 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         name,
         email,
         password,
+        avatar_url: null,
         createdAt: new Date()
       };
       
@@ -295,6 +363,7 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addNote,
     getNotesForContact,
     login,
+    loginWithGoogle,
     register,
     logout,
     updateUser: (user: User) => {
