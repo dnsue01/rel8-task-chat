@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import Layout from "../components/layout/Layout";
 import { useIntegrations } from "../context/IntegrationsContext";
@@ -688,15 +687,12 @@ interface TaskCardProps {
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({ task, notes, onLinkNote }) => {
-  const { getContacts } = useCrm();
-  const contacts = getContacts ? getContacts() : [];
+  const { contacts } = useCrm();
   const linkedNote = notes.find(n => n.id === task.linkedNoteId);
   const [selectedContact, setSelectedContact] = useState<string | null>(task.contactAssociation?.selected || null);
   
-  // Function to handle contact selection
   const handleContactSelect = (contactName: string) => {
     setSelectedContact(contactName);
-    // Here you could add logic to actually link the contact in your database
   };
   
   return (
