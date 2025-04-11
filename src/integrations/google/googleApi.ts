@@ -1,190 +1,140 @@
+import { supabase } from "../supabase/client";
 
-import { CalendarEvent, Email } from "../../types/integrations";
-import { getGoogleAccessToken } from "./googleAuth";
+// Cache the tokens in memory for the session
+let tokenCache: {
+  access_token?: string;
+  expires_at?: number;
+} = {};
 
 /**
- * Fetch events from Google Calendar using Supabase Edge Function
+ * Function to check if the current token is valid
+ * @returns boolean indicating if the token is valid
  */
-export const fetchGoogleCalendarEvents = async (): Promise<CalendarEvent[]> => {
-  const accessToken = getGoogleAccessToken();
-  if (!accessToken) {
-    throw new Error("Not authenticated with Google");
-  }
-  
+export const hasValidToken = (): boolean => {
+  return !!tokenCache.access_token && !!tokenCache.expires_at && tokenCache.expires_at > Date.now();
+};
+
+/**
+ * Function to fetch calendar events from Google Calendar API
+ * @returns Promise<any> with calendar events
+ */
+export const fetchCalendarEvents = async (): Promise<any> => {
   try {
-    // Use Supabase Edge Function to securely call Google Calendar API
-    const { data, error } = await window.supabase.functions.invoke('google-oauth', {
-      body: { 
-        access_token: accessToken,
-        endpoint: "calendar" 
+    if (!hasValidToken()) {
+      const newToken = await refreshAccessToken();
+      if (!newToken) {
+        throw new Error("Failed to refresh token");
       }
+    }
+
+    const response = await supabase.functions.invoke("google-oauth", {
+      body: {
+        access_token: tokenCache.access_token,
+        endpoint: "calendar",
+      },
     });
-    
-    if (error) {
-      console.error("Edge function error:", error);
-      throw new Error(`Failed to fetch calendar events: ${error.message}`);
+
+    if (response.error) {
+      throw new Error(`Error fetching calendar events: ${response.error.message}`);
     }
-    
-    console.log("Calendar data from edge function:", data);
-    
-    if (!data || !data.items) {
-      return [];
-    }
-    
-    // Transform Google Calendar events to our app's format
-    return data.items.map((event: any) => ({
-      id: event.id,
-      title: event.summary || "Sin título",
-      description: event.description || "",
-      startTime: new Date(event.start?.dateTime || event.start?.date || Date.now()),
-      endTime: new Date(event.end?.dateTime || event.end?.date || Date.now()),
-      location: event.location || "",
-      attendees: event.attendees?.map((a: any) => a.email) || []
-    }));
+
+    return response.data;
   } catch (error) {
-    console.error("Error fetching Google Calendar events:", error);
-    // For demo purposes, return mock data if the API call fails
-    const today = new Date();
-    return [
-      {
-        id: "mock-event-1",
-        title: "Evento de demostración",
-        description: "Este es un evento de demostración porque la API falló",
-        startTime: new Date(today.setHours(today.getHours() + 1)),
-        endTime: new Date(today.setHours(today.getHours() + 2)),
-        location: "Ubicación virtual",
-        attendees: ["usuario@ejemplo.com"]
-      }
-    ];
+    console.error("Error in fetchCalendarEvents:", error);
+    throw error;
   }
 };
 
 /**
- * Fetch emails from Gmail using Supabase Edge Function
+ * Function to fetch emails from Gmail API
+ * @returns Promise<any> with emails
  */
-export const fetchGmailMessages = async (): Promise<Email[]> => {
-  const accessToken = getGoogleAccessToken();
-  if (!accessToken) {
-    throw new Error("Not authenticated with Google");
-  }
-  
+export const fetchEmails = async (): Promise<any> => {
   try {
-    // Use Supabase Edge Function to securely call Gmail API
-    const { data, error } = await window.supabase.functions.invoke('google-oauth', {
-      body: { 
-        access_token: accessToken,
-        endpoint: "gmail" 
+    if (!hasValidToken()) {
+      const newToken = await refreshAccessToken();
+      if (!newToken) {
+        throw new Error("Failed to refresh token");
       }
-    });
-    
-    if (error) {
-      console.error("Edge function error:", error);
-      throw new Error(`Failed to fetch emails: ${error.message}`);
-    }
-    
-    console.log("Gmail data from edge function:", data);
-    
-    if (!data || !data.messages) {
-      return [];
     }
 
-    // Process email data
-    // Note: This requires an additional call for each message to get details
-    // In a real app, you might want to batch these or implement pagination
-    const emailPromises = data.messages.slice(0, 5).map(async (message: any) => {
-      try {
-        const { data: messageData, error: messageError } = await window.supabase.functions.invoke('google-oauth', {
-          body: { 
-            access_token: accessToken,
-            endpoint: "gmail/message",
-            message_id: message.id
-          }
-        });
-        
-        if (messageError) {
-          console.error("Failed to fetch message details:", messageError);
-          return null;
-        }
-        
-        // Extract email subject, sender, etc. from headers
-        const headers = messageData.payload?.headers || [];
-        const subject = headers.find((h: any) => h.name === "Subject")?.value || "Sin asunto";
-        const from = headers.find((h: any) => h.name === "From")?.value || "";
-        const to = headers.find((h: any) => h.name === "To")?.value?.split(",") || [];
-        
-        // Extract email body
-        let content = "";
-        if (messageData.payload?.body?.data) {
-          // Base64 encoded content
-          content = atob(messageData.payload.body.data.replace(/-/g, '+').replace(/_/g, '/'));
-        } else if (messageData.payload?.parts) {
-          // Multipart message
-          const textPart = messageData.payload.parts.find((part: any) => 
-            part.mimeType === "text/plain" && part.body?.data
-          );
-          if (textPart) {
-            content = atob(textPart.body.data.replace(/-/g, '+').replace(/_/g, '/'));
-          }
-        }
-        
-        return {
-          id: message.id,
-          subject,
-          sender: from,
-          recipients: to,
-          content: content.substring(0, 200) + (content.length > 200 ? "..." : ""),
-          receivedAt: new Date(parseInt(message.internalDate)),
-        };
-      } catch (err) {
-        console.error("Error processing email message:", err);
-        return null;
-      }
+    const response = await supabase.functions.invoke("google-oauth", {
+      body: {
+        access_token: tokenCache.access_token,
+        endpoint: "gmail",
+      },
     });
 
-    const emails = await Promise.all(emailPromises);
-    return emails.filter(email => email !== null) as Email[];
+    if (response.error) {
+      throw new Error(`Error fetching emails: ${response.error.message}`);
+    }
+
+    return response.data;
   } catch (error) {
-    console.error("Error fetching Gmail messages:", error);
-    // For demo purposes, return mock data if the API call fails
-    return [
-      {
-        id: "mock-email-1",
-        subject: "Email de demostración",
-        sender: "ejemplo@gmail.com",
-        recipients: ["tu@ejemplo.com"],
-        content: "Este es un email de demostración porque la API falló",
-        receivedAt: new Date(),
-      }
-    ];
+    console.error("Error in fetchEmails:", error);
+    throw error;
   }
 };
 
 /**
- * Fetch tasks from Google Tasks
- * Note: This is kept for reference but not actively used
+ * Function to fetch a specific email by ID
+ * @param messageId The Gmail message ID
+ * @returns Promise<any> with email details
  */
-export const fetchGoogleTasks = async (): Promise<any[]> => {
-  const accessToken = getGoogleAccessToken();
-  if (!accessToken) {
-    throw new Error("Not authenticated with Google");
-  }
-  
+export const fetchEmailDetails = async (messageId: string): Promise<any> => {
   try {
-    const { data, error } = await window.supabase.functions.invoke('google-oauth', {
-      body: { 
-        access_token: accessToken,
-        endpoint: "tasks" 
+    if (!hasValidToken()) {
+      const newToken = await refreshAccessToken();
+      if (!newToken) {
+        throw new Error("Failed to refresh token");
       }
-    });
-    
-    if (error) {
-      console.error("Edge function error:", error);
-      throw new Error(`Failed to fetch tasks: ${error.message}`);
     }
-    
-    return data.items || [];
+
+    const response = await supabase.functions.invoke("google-oauth", {
+      body: {
+        access_token: tokenCache.access_token,
+        endpoint: "gmail/message",
+        message_id: messageId,
+      },
+    });
+
+    if (response.error) {
+      throw new Error(`Error fetching email details: ${response.error.message}`);
+    }
+
+    return response.data;
   } catch (error) {
-    console.error("Error fetching Google Tasks:", error);
-    return [];
+    console.error("Error in fetchEmailDetails:", error);
+    throw error;
   }
+};
+
+/**
+ * Function to set the access token and expiration
+ * @param token The access token
+ * @param expiresIn Time until token expiration in seconds
+ */
+export const setAccessToken = (token: string, expiresIn: number) => {
+  tokenCache = {
+    access_token: token,
+    expires_at: Date.now() + expiresIn * 1000,
+  };
+};
+
+/**
+ * Function to clear the token cache
+ */
+export const clearTokenCache = () => {
+  tokenCache = {};
+};
+
+/**
+ * Function to refresh the access token
+ * @returns Promise<string | null> with new access token or null if failed
+ */
+export const refreshAccessToken = async (): Promise<string | null> => {
+  // This is a placeholder. In a real app, you would use the refresh token to get a new access token
+  // For this demo, we'll assume that if we need to refresh, the user needs to re-authenticate
+  clearTokenCache();
+  return null;
 };

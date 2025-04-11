@@ -1,13 +1,15 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Layout from "../components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MessageSquare, Sparkles, Send, Loader2, User } from "lucide-react";
+import { MessageSquare, Sparkles, Send, Loader2, User, Info } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { useCrm } from "../context/CrmContext";
+import { useIntegrations } from "../context/IntegrationsContext";
 
 type Message = {
   id: string;
@@ -24,12 +26,66 @@ const AIAssistant = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
-      text: "¡Hola! Soy tu asistente de IA. ¿En qué puedo ayudarte hoy?",
+      text: "¡Hola! Soy tu asistente de IA. ¿En qué puedo ayudarte hoy? Tengo acceso a tus contactos, notas y tareas para darte una asistencia más personalizada.",
       sender: "ai",
       timestamp: new Date(),
     },
   ]);
   const { toast } = useToast();
+  
+  // Get CRM data
+  const { 
+    contacts, 
+    tasks, 
+    notes, 
+    currentUser 
+  } = useCrm();
+  
+  // Get integrations data
+  const { 
+    calendarEvents, 
+    emails,
+  } = useIntegrations();
+
+  // Prepare context for AI
+  const [contextSummary, setContextSummary] = useState("");
+
+  // Generate context summary for the AI
+  useEffect(() => {
+    if (contacts.length === 0 && notes.length === 0 && tasks.length === 0) {
+      setContextSummary("");
+      return;
+    }
+
+    let summary = "";
+    
+    if (contacts.length > 0) {
+      summary += `Tienes ${contacts.length} contactos. `;
+      summary += `Los últimos contactos son: ${contacts.slice(0, 3).map(c => c.name).join(", ")}. `;
+    }
+    
+    if (tasks.length > 0) {
+      const pendingTasks = tasks.filter(t => t.status !== "completed" && t.status !== "done");
+      summary += `Tienes ${pendingTasks.length} tareas pendientes. `;
+      if (pendingTasks.length > 0) {
+        summary += `Las más urgentes son: ${pendingTasks.slice(0, 2).map(t => t.title).join(", ")}. `;
+      }
+    }
+    
+    if (notes.length > 0) {
+      summary += `Has guardado ${notes.length} notas. `;
+    }
+
+    if (calendarEvents && calendarEvents.length > 0) {
+      summary += `Tienes ${calendarEvents.length} eventos de calendario próximos. `;
+    }
+
+    if (emails && emails.length > 0) {
+      summary += `Tienes ${emails.length} emails recientes. `;
+    }
+
+    setContextSummary(summary);
+  }, [contacts, tasks, notes, calendarEvents, emails]);
 
   const handleApiKeySubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,14 +115,68 @@ const AIAssistant = () => {
     setPrompt("");
     setIsLoading(true);
 
-    // Simulate AI response (in a real app, this would call the actual API)
+    // Simulate AI response that incorporates contextual information
     setTimeout(() => {
+      // Here we would normally send the prompt and context to an actual AI model
+      // For demo purposes, we're simulating a response that uses the context
+      
+      let aiResponseText = "Aquí está mi respuesta simulada basada en tu información del CRM. ";
+      
+      // Use the context to make the response more personalized
+      if (contextSummary) {
+        // Extract keywords from the user's message to personalize the response
+        const userPrompt = prompt.toLowerCase();
+        
+        if (userPrompt.includes("contacto") || userPrompt.includes("contactos")) {
+          aiResponseText += `Veo que tienes ${contacts.length} contactos en tu CRM. `;
+          if (contacts.length > 0) {
+            aiResponseText += `Algunos de ellos son ${contacts.slice(0, 3).map(c => c.name).join(", ")}. `;
+          }
+        } 
+        else if (userPrompt.includes("tarea") || userPrompt.includes("tareas")) {
+          const pendingTasks = tasks.filter(t => t.status !== "completed" && t.status !== "done");
+          aiResponseText += `Tienes ${pendingTasks.length} tareas pendientes. `;
+          if (pendingTasks.length > 0) {
+            aiResponseText += `Las más urgentes son: ${pendingTasks.slice(0, 2).map(t => t.title).join(", ")}. `;
+          }
+        }
+        else if (userPrompt.includes("nota") || userPrompt.includes("notas")) {
+          aiResponseText += `Has guardado ${notes.length} notas en tu CRM. `;
+          if (notes.length > 0) {
+            aiResponseText += `Una de tus notas recientes menciona: "${notes[0].content.substring(0, 50)}${notes[0].content.length > 50 ? '...' : ''}". `;
+          }
+        }
+        else if (userPrompt.includes("calendario") || userPrompt.includes("evento")) {
+          if (calendarEvents && calendarEvents.length > 0) {
+            aiResponseText += `Tienes ${calendarEvents.length} eventos próximos en tu calendario. `;
+          } else {
+            aiResponseText += "No veo eventos próximos en tu calendario. ";
+          }
+        }
+        else if (userPrompt.includes("email") || userPrompt.includes("correo")) {
+          if (emails && emails.length > 0) {
+            aiResponseText += `Tienes ${emails.length} emails recientes. `;
+          } else {
+            aiResponseText += "No veo emails recientes. ";
+          }
+        }
+        else {
+          // Generic response using context summary
+          aiResponseText += contextSummary;
+        }
+      } else {
+        aiResponseText += "No tengo información de tu CRM para personalizar mi respuesta. ";
+      }
+      
+      aiResponseText += "En una implementación real, conectaría con un modelo de IA como ChatGPT para darte respuestas más precisas basadas en tu CRM.";
+      
       const aiResponse: Message = {
         id: `ai-${Date.now()}`,
-        text: "Esta es una respuesta simulada del asistente IA. En la implementación real, aquí se mostraría la respuesta de ChatGPT basada en tu mensaje.",
+        text: aiResponseText,
         sender: "ai",
         timestamp: new Date(),
       };
+      
       setMessages((prev) => [...prev, aiResponse]);
       setIsLoading(false);
     }, 1500);
@@ -110,6 +220,16 @@ const AIAssistant = () => {
           </Card>
         ) : (
           <div className="max-w-4xl mx-auto">
+            {contextSummary && (
+              <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6 flex items-start">
+                <Info className="h-5 w-5 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h3 className="text-sm font-medium text-blue-700">Contexto del CRM disponible</h3>
+                  <p className="text-xs text-blue-600 mt-1">{contextSummary}</p>
+                </div>
+              </div>
+            )}
+            
             <Tabs defaultValue="chat">
               <TabsList className="mb-6">
                 <TabsTrigger value="chat">Chat</TabsTrigger>
@@ -160,7 +280,7 @@ const AIAssistant = () => {
                   <div className="border-t p-4">
                     <form onSubmit={handleSendMessage} className="flex gap-2">
                       <Textarea
-                        placeholder="Escribe tu mensaje aquí..."
+                        placeholder="Escribe tu mensaje aquí... Puedes preguntarme sobre tus contactos, tareas o notas."
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
                         className="flex-1 resize-none h-11 py-3 min-h-11"
@@ -182,24 +302,24 @@ const AIAssistant = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {[
                     {
-                      title: "Generar correo electrónico",
-                      description: "Crea un email profesional basado en tu contexto",
-                      prompt: "Redacta un email profesional para un cliente...",
+                      title: "Resumir mis contactos",
+                      description: "Obtén un resumen de tus contactos principales",
+                      prompt: "Dame un resumen de mis contactos más importantes.",
                     },
                     {
-                      title: "Resumir información",
-                      description: "Genera un resumen conciso de tu texto",
-                      prompt: "Resume el siguiente texto...",
+                      title: "Tareas pendientes",
+                      description: "Lista mis tareas pendientes más urgentes",
+                      prompt: "¿Cuáles son mis tareas pendientes más urgentes?",
                     },
                     {
-                      title: "Mejora texto",
-                      description: "Mejora la redacción de cualquier texto",
-                      prompt: "Mejora la redacción del siguiente texto...",
+                      title: "Búsqueda en notas",
+                      description: "Busca información en todas tus notas",
+                      prompt: "Busca en mis notas información sobre [tema].",
                     },
                     {
-                      title: "Preguntas para reuniones",
-                      description: "Genera preguntas relevantes para una reunión",
-                      prompt: "Genera 5 preguntas relevantes para una reunión con...",
+                      title: "Próximos eventos",
+                      description: "Muestra mis próximos eventos de calendario",
+                      prompt: "¿Qué eventos tengo programados próximamente?",
                     },
                   ].map((template, index) => (
                     <Card key={index} className="cursor-pointer hover:border-primary/50 transition-all">

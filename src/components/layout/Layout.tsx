@@ -1,7 +1,5 @@
 
-import React, { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Menu } from "lucide-react";
+import React from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCrm } from "../../context/CrmContext";
 import Navbar from "./Navbar";
