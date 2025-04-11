@@ -11,9 +11,10 @@ import { Plus } from "lucide-react";
 
 interface NewContactFormProps {
   trigger?: React.ReactNode;
+  onSuccess?: () => void;
 }
 
-const NewContactForm: React.FC<NewContactFormProps> = ({ trigger }) => {
+const NewContactForm: React.FC<NewContactFormProps> = ({ trigger, onSuccess }) => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -43,6 +44,11 @@ const NewContactForm: React.FC<NewContactFormProps> = ({ trigger }) => {
     setCompany("");
     setStatus("lead");
     setIsDialogOpen(false);
+    
+    // Call the onSuccess callback if provided
+    if (onSuccess) {
+      onSuccess();
+    }
   };
 
   return (
