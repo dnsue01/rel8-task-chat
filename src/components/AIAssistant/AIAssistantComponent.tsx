@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import ChatInterface from "./ChatInterface";
-import { MessageSquare, Calendar, CheckSquare } from "lucide-react";
+import { MessageSquare, Calendar, CheckSquare, Search, FileText } from "lucide-react";
 import { useIntegrations } from '@/context/IntegrationsContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -12,7 +12,9 @@ const AIAssistantComponent: React.FC = () => {
   const { calendarEvents, tasks, emails, syncCalendarEvents, syncTasks, syncEmails } = useIntegrations();
   const [selectedPrompt, setSelectedPrompt] = useState<string | null>(null);
   const isMobile = useIsMobile();
+  const [chatInterfaceKey, setChatInterfaceKey] = useState<number>(0);
 
+  // Templates for the AI assistant
   const [templates, setTemplates] = useState([
     {
       id: 1,
@@ -32,7 +34,7 @@ const AIAssistantComponent: React.FC = () => {
       id: 3,
       title: "Búsqueda en notas",
       description: "Busca información en todas tus notas",
-      icon: <MessageSquare className="w-5 h-5 mr-2" />,
+      icon: <Search className="w-5 h-5 mr-2" />,
       prompt: "Busca información sobre reuniones en mis notas"
     },
     {
@@ -62,6 +64,15 @@ const AIAssistantComponent: React.FC = () => {
     loadData();
   }, [syncCalendarEvents, syncTasks, syncEmails]);
 
+  // Handle template selection
+  useEffect(() => {
+    if (selectedPrompt) {
+      setActiveTab("chat");
+      // Force re-render of ChatInterface with the new prompt
+      setChatInterfaceKey(prev => prev + 1);
+    }
+  }, [selectedPrompt]);
+
   return (
     <div className="container mx-auto py-3 sm:py-6 px-2 sm:px-4 max-w-6xl">
       <div className="flex items-center mb-3 sm:mb-6">
@@ -78,7 +89,11 @@ const AIAssistantComponent: React.FC = () => {
         </TabsList>
         
         <TabsContent value="chat" className="focus-visible:outline-none focus-visible:ring-0">
-          <ChatInterface />
+          <ChatInterface 
+            key={chatInterfaceKey} 
+            initialPrompt={selectedPrompt} 
+            onPromptProcessed={() => setSelectedPrompt(null)}
+          />
         </TabsContent>
         
         <TabsContent value="templates" className="focus-visible:outline-none focus-visible:ring-0">
@@ -94,7 +109,6 @@ const AIAssistantComponent: React.FC = () => {
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    setActiveTab("chat");
                     setSelectedPrompt(template.prompt);
                   }}
                   className="w-full sm:w-auto"

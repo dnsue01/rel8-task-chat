@@ -1,142 +1,154 @@
 
 import React, { useState } from "react";
-import { useCrm } from "../../context/CrmContext";
-import { Contact } from "../../types";
-import { Plus, Search, UserCircle } from "lucide-react";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { formatDistanceToNow } from "date-fns";
-import NewContactForm from "../contacts/NewContactForm";
-import { es } from "date-fns/locale";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Search, Plus, ArrowLeft } from "lucide-react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { useCrm } from "../../context/CrmContext";
+import { Contact } from "@/types";
+import { useIsMobile } from "@/hooks/use-mobile";
+import NewContactForm from "../contacts/NewContactForm";
 
-const ContactSidebar: React.FC = () => {
-  const { contacts, activeContactId, setActiveContactId } = useCrm();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const isMobile = useIsMobile();
+interface ContactItemProps {
+  contact: Contact;
+  isActive: boolean;
+  onClick: () => void;
+}
 
-  const getInitials = (name: string): string => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase();
+const ContactItem: React.FC<ContactItemProps> = ({ contact, isActive, onClick }) => {
+  // Determine status color
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "lead":
+        return "bg-yellow-400";
+      case "customer":
+        return "bg-green-400";
+      case "opportunity":
+        return "bg-purple-400";
+      default:
+        return "bg-gray-400";
+    }
   };
-
-  const handleContactClick = (contact: Contact) => {
-    setActiveContactId(contact.id);
-  };
-
-  const formatLastActivity = (date?: Date) => {
-    if (!date) return "Sin actividad";
-    return formatDistanceToNow(date, { addSuffix: true, locale: es });
-  };
-
-  const filteredContacts = contacts.filter(contact => 
-    contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (contact.email && contact.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (contact.company && contact.company.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
-
-  // Fix para el error de lastActivity.getTime
-  const sortedContacts = [...filteredContacts].sort((a, b) => {
-    // Verificar que lastActivity existe y es una instancia de Date válida
-    const aTime = a.lastActivity instanceof Date ? a.lastActivity.getTime() : 0;
-    const bTime = b.lastActivity instanceof Date ? b.lastActivity.getTime() : 0;
-    return bTime - aTime; // Orden descendente
-  });
 
   return (
-    <div className={`${isMobile ? 'w-full' : 'w-72 md:w-80'} h-full flex flex-col bg-white border-r`}>
-      <div className="p-3 sm:p-4 border-b">
-        <h2 className="text-lg sm:text-xl font-bold text-gray-800">Contactos</h2>
-        <p className="text-xs sm:text-sm text-gray-500">Gestiona tus relaciones</p>
-      </div>
-
-      <div className="p-3 sm:p-4 border-b">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
-          <Input 
-            placeholder="Buscar contactos..." 
-            className="pl-10 h-9"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+    <div
+      className={`p-3 sm:p-3 border-b cursor-pointer transition-colors ${
+        isActive
+          ? "bg-gray-100 border-l-4 border-l-primary"
+          : "hover:bg-gray-50"
+      }`}
+      onClick={onClick}
+    >
+      <div className="flex items-center">
+        {/* Avatar placeholder with first letter */}
+        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold text-sm sm:text-base mr-3">
+          {contact.name.charAt(0).toUpperCase()}
+        </div>
+        
+        <div className="flex-1 min-w-0">
+          <h3 className="font-medium text-sm sm:text-base truncate">{contact.name}</h3>
+          <div className="flex items-center mt-1">
+            <span className={`inline-block w-2 h-2 rounded-full mr-2 ${getStatusColor(contact.status)}`}></span>
+            <p className="text-xs sm:text-sm text-gray-600 truncate">
+              {contact.company || "No company"}
+            </p>
+          </div>
         </div>
       </div>
+    </div>
+  );
+};
 
-      <div className="flex-1 overflow-y-auto">
-        {sortedContacts.length === 0 && (
-          <div className="p-4 text-center text-gray-500">
-            {contacts.length === 0 ? (
-              <div>
-                <UserCircle className="mx-auto h-10 w-10 opacity-20 mb-2" />
-                <p className="text-sm">No hay contactos todavía</p>
-                <p className="text-xs mt-1">Añade tu primer contacto para comenzar</p>
-              </div>
-            ) : (
-              <p className="text-sm">No se encontraron contactos que coincidan con "{searchQuery}"</p>
-            )}
-          </div>
-        )}
+const ContactSidebar = () => {
+  const { contacts, setActiveContactId, activeContactId, addContact } = useCrm();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isNewContactDialogOpen, setIsNewContactDialogOpen] = useState(false);
+  const isMobile = useIsMobile();
 
-        {sortedContacts.map((contact) => (
-          <div
-            key={contact.id}
-            className={`p-3 sm:p-4 border-b cursor-pointer hover:bg-gray-50 transition-colors ${
-              contact.id === activeContactId ? "bg-blue-50 border-l-4 border-l-blue-500" : ""
-            }`}
-            onClick={() => handleContactClick(contact)}
-          >
-            <div className="flex">
-              <Avatar className="h-9 w-9 sm:h-10 sm:w-10 mr-3 flex-shrink-0">
-                <AvatarImage src={contact.avatar} />
-                <AvatarFallback>{getInitials(contact.name)}</AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-baseline">
-                  <h3 className="font-medium text-gray-900 truncate text-sm sm:text-base">{contact.name}</h3>
-                  <span className="text-xs text-gray-500 whitespace-nowrap ml-1">
-                    {formatLastActivity(contact.lastActivity)}
-                  </span>
-                </div>
-                <p className="text-xs sm:text-sm text-gray-500 truncate">{contact.company || contact.email}</p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+  // Filter contacts based on search term
+  const filteredContacts = contacts.filter(contact =>
+    contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (contact.company && contact.company.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
 
-      {isMobile ? (
-        <div className="p-3 sm:p-4 border-t">
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+  const handleBackToList = () => {
+    setActiveContactId(null);
+  };
+
+  const handleNewContactSuccess = () => {
+    setIsNewContactDialogOpen(false);
+  };
+
+  return (
+    <div className={`border-r bg-white ${isMobile && activeContactId ? 'hidden' : 'flex flex-col w-full md:w-80 lg:w-96'}`}>
+      {/* Back button for mobile */}
+      {isMobile && activeContactId && (
+        <Button 
+          variant="ghost" 
+          onClick={handleBackToList}
+          className="flex items-center mb-2"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to list
+        </Button>
+      )}
+
+      <div className="p-3 sm:p-4 border-b">
+        <div className="flex justify-between mb-3 sm:mb-4">
+          <h2 className="text-lg sm:text-xl font-bold">Contactos</h2>
+          <Dialog open={isNewContactDialogOpen} onOpenChange={setIsNewContactDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="w-full" size="sm">
-                <Plus className="mr-1 h-4 w-4" /> Añadir Contacto
+              <Button size="sm" className="h-8 w-8">
+                <Plus className="h-4 w-4" />
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Nuevo Contacto</DialogTitle>
+                <DialogDescription>
+                  Crea un nuevo contacto para tu CRM.
+                </DialogDescription>
               </DialogHeader>
-              <NewContactForm onSuccess={() => setDialogOpen(false)} />
+              <NewContactForm onSuccess={handleNewContactSuccess} />
             </DialogContent>
           </Dialog>
         </div>
-      ) : (
-        <div className="p-3 sm:p-4 border-t">
-          <NewContactForm />
+
+        <div className="relative">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
+          <Input
+            className="pl-8"
+            placeholder="Buscar contactos..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+          />
         </div>
-      )}
+      </div>
+
+      <ScrollArea className="flex-1">
+        {filteredContacts.length === 0 ? (
+          <div className="p-4 text-center text-gray-500">
+            No se encontraron contactos
+          </div>
+        ) : (
+          filteredContacts.map(contact => (
+            <ContactItem
+              key={contact.id}
+              contact={contact}
+              isActive={contact.id === activeContactId}
+              onClick={() => setActiveContactId(contact.id)}
+            />
+          ))
+        )}
+      </ScrollArea>
     </div>
   );
 };

@@ -40,9 +40,7 @@ const Layout: React.FC<LayoutProps> = ({ children, hideSidebar = false }) => {
       )}
 
       {/* Mobile menu */}
-      {isMobile && (
-        <MobileMenu isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
-      )}
+      <MobileMenu isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
 
       {/* Main content */}
       <div className="flex-1 overflow-auto bg-gray-50 w-full">

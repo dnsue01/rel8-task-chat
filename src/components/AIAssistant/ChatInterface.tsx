@@ -16,13 +16,19 @@ interface Message {
   timestamp: Date;
 }
 
-const ChatInterface: React.FC = () => {
+interface ChatInterfaceProps {
+  initialPrompt?: string | null;
+  onPromptProcessed?: () => void;
+}
+
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialPrompt = null, onPromptProcessed }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { calendarEvents, tasks, emails, taskLists } = useIntegrations();
   const { contacts, tasks: crmTasks, notes } = useCrm();
+  const initialPromptProcessedRef = useRef(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -31,6 +37,19 @@ const ChatInterface: React.FC = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Process initial prompt if provided
+  useEffect(() => {
+    const processInitialPrompt = async () => {
+      if (initialPrompt && !initialPromptProcessedRef.current) {
+        initialPromptProcessedRef.current = true;
+        await handleSendMessage(null, initialPrompt);
+        if (onPromptProcessed) onPromptProcessed();
+      }
+    };
+
+    processInitialPrompt();
+  }, [initialPrompt]);
 
   // Function to prepare comprehensive context for the AI
   const prepareContextForAI = () => {
@@ -96,7 +115,8 @@ const ChatInterface: React.FC = () => {
         
         // Add detailed date information
         if (task.dueDate) {
-          context += `, vence ${format(task.dueDate, 'dd/MM/yyyy')}`;
+          const dueDate = new Date(task.dueDate);
+          context += `, vence ${format(dueDate, 'dd/MM/yyyy')}`;
         }
         
         context += `\n`;
@@ -110,27 +130,29 @@ const ChatInterface: React.FC = () => {
       notes.slice(0, 5).forEach(note => {
         const contactName = contacts.find(c => c.id === note.contactId)?.name || 'Sin contacto';
         const shortContent = note.content.length > 50 ? note.content.substring(0, 50) + '...' : note.content;
-        const noteDate = format(note.createdAt, 'dd/MM/yyyy');
-        context += `- Nota para ${contactName} (${noteDate}): ${shortContent}\n`;
+        const noteDate = new Date(note.createdAt);
+        context += `- Nota para ${contactName} (${format(noteDate, 'dd/MM/yyyy')}): ${shortContent}\n`;
       });
     }
     
     return context;
   };
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim()) return;
+  const handleSendMessage = async (e: React.FormEvent | null, promptText?: string) => {
+    if (e) e.preventDefault();
+    
+    const messageText = promptText || input;
+    if (!messageText.trim()) return;
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
       sender: 'user',
-      text: input,
+      text: messageText,
       timestamp: new Date(),
     };
 
     setMessages(prev => [...prev, userMessage]);
-    setInput('');
+    if (!promptText) setInput('');
     setIsLoading(true);
 
     try {
@@ -140,7 +162,7 @@ const ChatInterface: React.FC = () => {
       // Call the Edge Function of Supabase to process the message
       const response = await supabase.functions.invoke('openai-chat', {
         body: {
-          prompt: input,
+          prompt: messageText,
           messages: messages,
           context: context, // Pass the prepared context to the API
         },
