@@ -4,7 +4,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  avatar_url?: string; // Añadimos esta propiedad
+  avatar_url?: string;
 }
 
 export interface Note {
@@ -39,7 +39,9 @@ export interface Task {
   priority: TaskPriority;
   contactId?: string;
   completed: boolean;
+  createdAt: Date;
+  completedAt?: Date;
 }
 
-export type TaskStatus = "pending" | "in-progress" | "completed" | "cancelled";
+export type TaskStatus = "pending" | "in-progress" | "completed" | "cancelled" | "waiting" | "done" | "overdue";
 export type TaskPriority = "low" | "medium" | "high" | "urgent";

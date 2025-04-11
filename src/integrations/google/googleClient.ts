@@ -1,107 +1,88 @@
 
-// Este es un archivo de preparación para la integración real con Google
-// En una aplicación de producción, este archivo interactuaría con Supabase Edge Functions
+// Real Google API integration that replaces the simulated version
 
-import { supabase } from "../supabase/client";
+import { loginWithGoogleCalendarAndTasks, logoutFromGoogle, isGoogleAuthenticated } from './googleAuth';
+import { fetchGoogleCalendarEvents, fetchGoogleTasks, fetchGmailMessages } from './googleApi';
+import { CalendarEvent, Email } from "../../types/integrations";
 
-// Interfaces para tipado
-interface GoogleTokens {
-  access_token: string;
-  refresh_token?: string;
-  expires_at: number;
-}
+// Client ID from Google Developer Console should be configured here
+// In a real application, this would be stored in environment variables
+const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID"; // Replace with your actual client ID
 
-interface GoogleCalendarEvent {
-  id: string;
-  summary: string;
-  description?: string;
-  start: {
-    dateTime: string;
-    timeZone?: string;
-  };
-  end: {
-    dateTime: string;
-    timeZone?: string;
-  };
-  location?: string;
-  attendees?: Array<{ email: string }>;
-}
-
-interface GoogleEmail {
-  id: string;
-  subject: string;
-  from: string;
-  to: string[];
-  body: string;
-  receivedAt: string;
-}
-
-// En una aplicación real, estas funciones llamarían a Edge Functions de Supabase
-// que manejarían las peticiones a la API de Google de forma segura
 export const googleClient = {
-  // Autenticación
+  // Authentication
   initiateGoogleAuth: async () => {
     try {
-      // En una implementación real:
-      // 1. Llamar a una Edge Function de Supabase para generar la URL de OAuth
-      // 2. Redirigir al usuario a la página de autenticación de Google
-      // 3. Manejar la redirección y los tokens de forma segura
-      
-      // Implementación simulada para desarrollo
-      console.log("Iniciando flujo de autenticación con Google (simulación)");
-      return { success: true, redirectUrl: '#simulated-oauth-flow' };
+      // Begin the OAuth flow with Google
+      const accessToken = await loginWithGoogleCalendarAndTasks(GOOGLE_CLIENT_ID);
+      return { 
+        success: true, 
+        data: { accessToken } 
+      };
     } catch (error) {
-      console.error("Error en autenticación con Google:", error);
+      console.error("Error during Google authentication:", error);
       return { success: false, error };
     }
   },
   
-  // Calendario
-  fetchCalendarEvents: async () => {
+  isConnected: () => {
+    return isGoogleAuthenticated();
+  },
+  
+  disconnectGoogle: async () => {
     try {
-      // En una implementación real, esto llamaría a una Edge Function
-      // que utilizaría los tokens guardados para solicitar eventos a la API de Google Calendar
-      console.log("Solicitando eventos de calendario (simulación)");
-      return { success: true, data: [] };
+      await logoutFromGoogle();
+      return { success: true };
     } catch (error) {
-      console.error("Error al obtener eventos de calendario:", error);
+      console.error("Error disconnecting from Google:", error);
+      return { success: false, error };
+    }
+  },
+  
+  // Calendar
+  fetchCalendarEvents: async (): Promise<{ success: boolean, data?: CalendarEvent[], error?: any }> => {
+    try {
+      const events = await fetchGoogleCalendarEvents();
+      return { success: true, data: events };
+    } catch (error) {
+      console.error("Error fetching calendar events:", error);
+      return { success: false, error };
+    }
+  },
+  
+  // Tasks
+  fetchTasks: async (): Promise<{ success: boolean, data?: any[], error?: any }> => {
+    try {
+      const tasks = await fetchGoogleTasks();
+      return { success: true, data: tasks };
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
       return { success: false, error };
     }
   },
   
   // Gmail
-  fetchEmails: async () => {
+  fetchEmails: async (): Promise<{ success: boolean, data?: Email[], error?: any }> => {
     try {
-      // En una implementación real, esto llamaría a una Edge Function
-      // que utilizaría los tokens guardados para solicitar emails a la API de Gmail
-      console.log("Solicitando correos electrónicos (simulación)");
-      return { success: true, data: [] };
+      const emails = await fetchGmailMessages();
+      return { success: true, data: emails };
     } catch (error) {
-      console.error("Error al obtener correos:", error);
+      console.error("Error fetching emails:", error);
       return { success: false, error };
     }
   }
 };
 
-// Notas para implementación futura:
+// Instructions for completing the integration:
 /*
-Para una implementación completa con Supabase:
+To complete the integration with Google:
 
-1. Crear una tabla en Supabase para almacenar tokens de acceso de forma segura:
-   - user_id (FK a auth.users)
-   - provider (e.g., 'google')
-   - access_token (encriptado)
-   - refresh_token (encriptado)
-   - expires_at
-   - scopes
+1. Create a project in the Google Cloud Console (https://console.cloud.google.com/)
+2. Enable the Google Calendar API, Tasks API, and optionally the Gmail API
+3. Create OAuth 2.0 credentials and copy the Client ID
+4. Replace the GOOGLE_CLIENT_ID placeholder in this file
+5. Configure the authorized JavaScript origins to include your app's domain
+6. Configure the authorized redirect URIs to include your app's callback URL
 
-2. Crear Edge Functions en Supabase:
-   - google-auth-init: Genera URL de OAuth y estado para CSRF protection
-   - google-auth-callback: Maneja la redirección de OAuth y guarda tokens
-   - google-calendar-events: Obtiene eventos del calendario
-   - google-mail-messages: Obtiene correos electrónicos
-   
-3. Implementar actualizaciones automáticas de tokens cuando expiren
-
-4. Configurar políticas de Row Level Security (RLS) para la tabla de tokens
+For production, store your client ID in environment variables rather than hardcoding it.
 */

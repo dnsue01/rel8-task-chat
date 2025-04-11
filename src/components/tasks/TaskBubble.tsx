@@ -15,12 +15,15 @@ const TaskBubble: React.FC<TaskBubbleProps> = ({ task }) => {
 
   const getBubbleClass = () => {
     switch (task.status) {
+      case "pending":
       case "waiting":
         return "task-bubble-waiting";
       case "in-progress":
         return "task-bubble-in-progress";
+      case "completed":
       case "done":
         return "task-bubble-done";
+      case "cancelled":
       case "overdue":
         return "task-bubble-overdue";
       default:
@@ -30,12 +33,15 @@ const TaskBubble: React.FC<TaskBubbleProps> = ({ task }) => {
 
   const getStatusText = () => {
     switch (task.status) {
+      case "pending":
       case "waiting":
         return "Waiting";
       case "in-progress":
         return "In Progress";
+      case "completed":
       case "done":
         return "Completed";
+      case "cancelled":
       case "overdue":
         return "Overdue";
       default:
@@ -57,7 +63,7 @@ const TaskBubble: React.FC<TaskBubbleProps> = ({ task }) => {
   };
 
   const handleStatusChange = (newStatus: Task["status"]) => {
-    if (newStatus === "done") {
+    if (newStatus === "completed" || newStatus === "done") {
       completeTask(task.id);
     } else {
       reopenTask(task.id);
@@ -69,7 +75,7 @@ const TaskBubble: React.FC<TaskBubbleProps> = ({ task }) => {
 
     if (isToday(date)) {
       return "Today";
-    } else if (isPast(date) && task.status !== "done") {
+    } else if (isPast(date) && task.status !== "completed" && task.status !== "done") {
       return `Overdue: ${formatDistanceToNow(date, { addSuffix: true })}`;
     } else {
       return formatDistanceToNow(date, { addSuffix: true });
@@ -102,18 +108,18 @@ const TaskBubble: React.FC<TaskBubbleProps> = ({ task }) => {
       </div>
       
       <div className="flex gap-2">
-        {task.status !== "done" && (
+        {(task.status !== "completed" && task.status !== "done") && (
           <Button 
             variant="outline" 
             size="sm" 
             className="text-xs" 
-            onClick={() => handleStatusChange("done")}
+            onClick={() => handleStatusChange("completed")}
           >
             <Check size={14} className="mr-1" /> Mark Done
           </Button>
         )}
         
-        {task.status === "done" && (
+        {(task.status === "completed" || task.status === "done") && (
           <Button 
             variant="outline" 
             size="sm" 
@@ -124,7 +130,7 @@ const TaskBubble: React.FC<TaskBubbleProps> = ({ task }) => {
           </Button>
         )}
         
-        {task.status === "waiting" && (
+        {(task.status === "pending" || task.status === "waiting") && (
           <Button 
             variant="outline" 
             size="sm" 
