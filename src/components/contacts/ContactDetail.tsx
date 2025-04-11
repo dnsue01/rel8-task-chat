@@ -7,7 +7,7 @@ import AddNoteForm from "./AddNoteForm";
 import EditContactDialog from "./EditContactDialog";
 import DeleteContactDialog from "./DeleteContactDialog";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Phone, Mail, Building2, Tag, MessageSquare, FileText, Loader2, MoreVertical } from "lucide-react";
+import { Phone, Mail, Building2, Tag, MessageSquare, FileText, Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,9 +17,11 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const ContactDetail: React.FC = () => {
   const { activeContactId, getContactById, getTasksForContact, getNotesForContact, isLoading } = useCrm();
+  const isMobile = useIsMobile();
 
   if (isLoading) {
     return (
@@ -86,14 +88,14 @@ const ContactDetail: React.FC = () => {
   };
 
   return (
-    <div className="h-full flex flex-col max-w-4xl mx-auto">
+    <div className="h-full flex flex-col">
       {/* Contact Header */}
-      <div className="bg-white rounded-lg shadow-sm p-6 mb-4">
+      <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center">
             <ContextMenu>
               <ContextMenuTrigger className="cursor-pointer">
-                <Avatar className="h-16 w-16 mr-4">
+                <Avatar className="h-14 w-14 sm:h-16 sm:w-16 mr-3 sm:mr-4">
                   <AvatarImage src={contact.avatar} />
                   <AvatarFallback>{getInitials(contact.name)}</AvatarFallback>
                 </Avatar>
@@ -119,33 +121,33 @@ const ContactDetail: React.FC = () => {
             </ContextMenu>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold text-gray-900">{contact.name}</h1>
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{contact.name}</h1>
                 {getStatusBadge()}
               </div>
-              <p className="text-gray-500">
+              <p className="text-gray-500 text-sm sm:text-base">
                 {contact.lastActivity && 
                   `Última actividad ${formatDistanceToNow(contact.lastActivity, { addSuffix: true, locale: es })}`}
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {contact.email && (
-                  <div className="flex items-center text-sm text-gray-500">
-                    <Mail className="h-4 w-4 mr-1" /> {contact.email}
+                  <div className="flex items-center text-xs sm:text-sm text-gray-500">
+                    <Mail className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> {contact.email}
                   </div>
                 )}
                 {contact.phone && (
-                  <div className="flex items-center text-sm text-gray-500">
-                    <Phone className="h-4 w-4 mr-1" /> {contact.phone}
+                  <div className="flex items-center text-xs sm:text-sm text-gray-500">
+                    <Phone className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> {contact.phone}
                   </div>
                 )}
                 {contact.company && (
-                  <div className="flex items-center text-sm text-gray-500">
-                    <Building2 className="h-4 w-4 mr-1" /> {contact.company}
+                  <div className="flex items-center text-xs sm:text-sm text-gray-500">
+                    <Building2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> {contact.company}
                   </div>
                 )}
               </div>
               {contact.tags && contact.tags.length > 0 && (
                 <div className="mt-2 flex items-center gap-2">
-                  <Tag className="h-4 w-4 text-gray-500" />
+                  <Tag className="h-3 w-3 sm:h-4 sm:w-4 text-gray-500" />
                   {contact.tags.map((tag) => (
                     <span key={tag} className="bg-gray-100 text-gray-800 text-xs px-2 py-0.5 rounded">
                       {tag}
@@ -155,7 +157,8 @@ const ContactDetail: React.FC = () => {
               )}
             </div>
           </div>
-          <div className="flex items-start space-x-2">
+          {/* Only show action buttons on desktop or in a more compact way on mobile */}
+          <div className={`flex items-start space-x-2 ${isMobile ? 'flex-col space-x-0 space-y-2' : ''}`}>
             <EditContactDialog contact={contact} />
             <DeleteContactDialog contact={contact} />
           </div>

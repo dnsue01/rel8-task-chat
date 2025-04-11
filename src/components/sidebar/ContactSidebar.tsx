@@ -1,9 +1,8 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, Plus, ArrowLeft } from "lucide-react";
+import { Search, Plus } from "lucide-react";
 import { useCrm } from "../../context/CrmContext";
 import { Contact } from "@/types";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -17,7 +16,6 @@ interface ContactItemProps {
 }
 
 const ContactItem: React.FC<ContactItemProps> = ({ contact, isActive, onClick }) => {
-  // Determine status color
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case "lead":
@@ -43,7 +41,6 @@ const ContactItem: React.FC<ContactItemProps> = ({ contact, isActive, onClick })
       onClick={onClick}
     >
       <div className="flex items-center">
-        {/* Avatar placeholder with first letter */}
         <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold text-sm sm:text-base mr-3">
           {contact.name.charAt(0).toUpperCase()}
         </div>
@@ -67,15 +64,10 @@ const ContactSidebar = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const isMobile = useIsMobile();
 
-  // Filter contacts based on search term
   const filteredContacts = contacts.filter(contact =>
     contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (contact.company && contact.company.toLowerCase().includes(searchTerm.toLowerCase()))
   );
-
-  const handleBackToList = () => {
-    setActiveContactId(null);
-  };
 
   const handleContactsChange = () => {
     // Este método se llamará después de agregar o importar contactos
@@ -83,18 +75,6 @@ const ContactSidebar = () => {
 
   return (
     <div className={`border-r bg-white ${isMobile && activeContactId ? 'hidden' : 'flex flex-col w-full md:w-80 lg:w-96'}`}>
-      {/* Back button for mobile */}
-      {isMobile && activeContactId && (
-        <Button 
-          variant="ghost" 
-          onClick={handleBackToList}
-          className="flex items-center mb-2"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to list
-        </Button>
-      )}
-
       <div className="p-3 sm:p-4 border-b">
         <div className="flex justify-between mb-3 sm:mb-4">
           <h2 className="text-lg sm:text-xl font-bold">Contactos</h2>

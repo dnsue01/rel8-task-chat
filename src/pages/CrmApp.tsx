@@ -4,10 +4,11 @@ import { Navigate } from "react-router-dom";
 import Layout from "../components/layout/Layout";
 import ContactDetail from "../components/contacts/ContactDetail";
 import ContactSidebar from "../components/sidebar/ContactSidebar";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
 import { useCrm } from "../context/CrmContext";
 import { Toaster } from "@/components/ui/toaster";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Button } from "@/components/ui/button";
 
 // Componente de carga
 const LoadingState = () => (
@@ -21,7 +22,7 @@ const LoadingState = () => (
 );
 
 const CrmApp = () => {
-  const { isLoading, isAuthenticated, activeContactId } = useCrm();
+  const { isLoading, isAuthenticated, activeContactId, setActiveContactId } = useCrm();
   const isMobile = useIsMobile();
 
   // Redirect to login if not authenticated
@@ -33,6 +34,10 @@ const CrmApp = () => {
     return <LoadingState />;
   }
 
+  const handleBackToList = () => {
+    setActiveContactId(null);
+  };
+
   return (
     <Layout>
       <div className="flex h-full flex-col md:flex-row">
@@ -40,7 +45,19 @@ const CrmApp = () => {
         {isMobile ? (
           activeContactId ? (
             <div className="flex-1 overflow-auto bg-gray-50">
-              <ContactDetail />
+              <div className="sticky top-0 z-10 bg-white p-2 border-b flex items-center">
+                <Button 
+                  variant="ghost" 
+                  onClick={handleBackToList}
+                  className="flex items-center"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Volver a lista
+                </Button>
+              </div>
+              <div className="p-4">
+                <ContactDetail />
+              </div>
             </div>
           ) : (
             <ContactSidebar />
