@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { sampleContacts, sampleTasks, sampleNotes } from "../data/sampleData";
-import { Contact, Task, Note, User } from "../types";
+import { Contact, Task, Note, User, TaskStatus } from "../types";
 
 type CrmContextType = {
   contacts: Contact[];
