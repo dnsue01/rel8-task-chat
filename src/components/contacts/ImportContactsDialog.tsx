@@ -29,27 +29,34 @@ const ImportContactsDialog: React.FC<ImportContactsDialogProps> = ({ onSuccess }
   const processCSV = (text: string) => {
     const lines = text.split("\n");
     
-    // Find header line and map columns
-    let headerLine = lines.find(line => line.includes("Name") && line.includes("E-mail"))?.split(",");
+    // Find header line to map columns
+    let headerLine = lines.find(line => 
+      line.includes("First Name") && 
+      (line.includes("Phone 1 - Value") || line.includes("Phone"))
+    )?.split(",");
+    
     if (!headerLine) {
       toast({
         title: "Error de formato CSV",
-        description: "No se encontró una cabecera de CSV con 'Name' y 'E-mail'",
+        description: "No se encontró una cabecera con 'First Name' y campo de teléfono",
         variant: "destructive"
       });
       return [];
     }
     
-    // Find column indexes
-    const nameIndex = headerLine.findIndex(col => col.includes("Name"));
-    const emailIndex = headerLine.findIndex(col => col.includes("E-mail"));
-    const phoneIndex = headerLine.findIndex(col => col.includes("Phone") || col.includes("Mobile"));
-    const companyIndex = headerLine.findIndex(col => col.includes("Company") || col.includes("Organization"));
+    // Find column indexes for name components and phone
+    const firstNameIndex = headerLine.findIndex(col => col.includes("First Name"));
+    const middleNameIndex = headerLine.findIndex(col => col.includes("Middle Name"));
+    const lastNameIndex = headerLine.findIndex(col => col.includes("Last Name"));
+    const phoneIndex = headerLine.findIndex(col => 
+      col.includes("Phone 1 - Value") || 
+      (col.includes("Phone") && col.includes("Value"))
+    );
     
-    if (nameIndex === -1 || emailIndex === -1) {
+    if (firstNameIndex === -1 || phoneIndex === -1) {
       toast({
         title: "Error de formato CSV",
-        description: "No se encontraron las columnas necesarias de nombre y email",
+        description: "No se encontraron las columnas necesarias de nombre y teléfono",
         variant: "destructive"
       });
       return [];
@@ -81,19 +88,25 @@ const ImportContactsDialog: React.FC<ImportContactsDialogProps> = ({ onSuccess }
       }
       cells.push(currentCell); // Add the last cell
       
-      // Extract data
-      const name = cells[nameIndex]?.replace(/"/g, "").trim();
-      const email = cells[emailIndex]?.replace(/"/g, "").trim();
+      // Extract and combine name components
+      const firstName = cells[firstNameIndex]?.replace(/"/g, "").trim() || "";
+      const middleName = middleNameIndex !== -1 ? cells[middleNameIndex]?.replace(/"/g, "").trim() || "" : "";
+      const lastName = lastNameIndex !== -1 ? cells[lastNameIndex]?.replace(/"/g, "").trim() || "" : "";
       
-      if (name && email) {
-        const phone = phoneIndex !== -1 ? cells[phoneIndex]?.replace(/"/g, "").trim() : undefined;
-        const company = companyIndex !== -1 ? cells[companyIndex]?.replace(/"/g, "").trim() : undefined;
-        
+      // Combine name components, filtering out empty parts
+      const nameParts = [firstName, middleName, lastName].filter(part => part.length > 0);
+      const fullName = nameParts.join(" ");
+      
+      // Clean and extract phone number
+      let phone = cells[phoneIndex]?.replace(/"/g, "").trim() || "";
+      // Remove non-standard characters except for +
+      phone = phone.replace(/[^\d+]/g, "");
+      
+      if (fullName) {
         contacts.push({
-          name,
-          email,
+          name: fullName,
           phone,
-          company,
+          email: "",
           status: "lead" as ContactStatus,
           tags: [],
         });
