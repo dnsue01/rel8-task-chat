@@ -93,8 +93,7 @@ const Auth: React.FC = () => {
     }
   };
 
-  // IMPORTANT: DO NOT early return before this point so that all hooks are called consistently
-  // Moved the conditional redirect to the end of the component function
+  // This is the fix: Move the redirect after all hooks have been called
   if (isAuthenticated) {
     return <Navigate to="/app" />;
   }
