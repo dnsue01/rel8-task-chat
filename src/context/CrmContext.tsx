@@ -18,8 +18,10 @@ type CrmContextType = {
   getContactById: (id: string) => Contact | undefined;
   
   addTask: (task: Omit<Task, "id" | "createdAt" | "completedAt">) => void;
+  updateTask: (task: Task) => void;
   completeTask: (taskId: string) => void;
   reopenTask: (taskId: string) => void;
+  deleteTask: (taskId: string) => void;
   getTasksForContact: (contactId: string) => Task[];
   
   addNote: (note: Omit<Note, "id" | "createdAt">) => Promise<void>;
@@ -308,6 +310,18 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  const updateTask = (updatedTask: Task) => {
+    setTasks(tasks.map(task => task.id === updatedTask.id ? updatedTask : task));
+    
+    setContacts(
+      contacts.map(contact => 
+        contact.id === updatedTask.contactId 
+          ? { ...contact, lastActivity: new Date() } 
+          : contact
+      )
+    );
+  };
+
   const completeTask = (taskId: string) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
@@ -350,6 +364,23 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  const deleteTask = (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    
+    setTasks(tasks.filter(task => task.id !== taskId));
+    
+    if (task.contactId) {
+      setContacts(
+        contacts.map(contact => 
+          contact.id === task.contactId 
+            ? { ...contact, lastActivity: new Date() } 
+            : contact
+        )
+      );
+    }
+  };
+
   const getNotesForContact = (contactId: string) => {
     return notes.filter(note => note.contactId === contactId);
   };
@@ -383,8 +414,10 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addContact,
     getContactById,
     addTask,
+    updateTask,
     completeTask,
     reopenTask,
+    deleteTask,
     getTasksForContact,
     addNote,
     getNotesForContact,

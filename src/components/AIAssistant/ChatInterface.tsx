@@ -7,6 +7,7 @@ import { Send, Loader2 } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { useIntegrations } from '@/context/IntegrationsContext';
 import { useCrm } from '@/context/CrmContext';
+import { format } from 'date-fns';
 
 interface Message {
   id: string;
@@ -85,13 +86,20 @@ const ChatInterface: React.FC = () => {
       context += '\n';
     }
     
-    // Add CRM tasks context
+    // Add CRM tasks context with detailed date information
     if (crmTasks && crmTasks.length > 0) {
       context += 'Tus tareas en el CRM:\n';
       const pendingCrmTasks = crmTasks.filter(task => !task.completed);
       pendingCrmTasks.slice(0, 5).forEach(task => {
         const contactName = contacts.find(c => c.id === task.contactId)?.name || 'Sin contacto';
-        context += `- ${task.title} (${task.priority}, para ${contactName})\n`;
+        context += `- ${task.title} (${task.priority}, para ${contactName})`;
+        
+        // Add detailed date information
+        if (task.dueDate) {
+          context += `, vence ${format(task.dueDate, 'dd/MM/yyyy')}`;
+        }
+        
+        context += `\n`;
       });
       context += '\n';
     }
@@ -102,7 +110,8 @@ const ChatInterface: React.FC = () => {
       notes.slice(0, 5).forEach(note => {
         const contactName = contacts.find(c => c.id === note.contactId)?.name || 'Sin contacto';
         const shortContent = note.content.length > 50 ? note.content.substring(0, 50) + '...' : note.content;
-        context += `- Nota para ${contactName}: ${shortContent}\n`;
+        const noteDate = format(note.createdAt, 'dd/MM/yyyy');
+        context += `- Nota para ${contactName} (${noteDate}): ${shortContent}\n`;
       });
     }
     
@@ -168,7 +177,7 @@ const ChatInterface: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-[70vh] border rounded-lg bg-white shadow-sm">
+    <div className="flex flex-col h-[calc(100vh-230px)] sm:h-[70vh] border rounded-lg bg-white shadow-sm">
       <ScrollArea className="flex-1 p-4">
         <div className="space-y-4">
           {messages.length === 0 ? (
@@ -185,7 +194,7 @@ const ChatInterface: React.FC = () => {
                 }`}
               >
                 <div
-                  className={`max-w-[75%] rounded-lg px-4 py-2 ${
+                  className={`max-w-[90%] sm:max-w-[75%] rounded-lg px-4 py-2 ${
                     message.sender === 'user'
                       ? 'bg-blue-500 text-white'
                       : 'bg-gray-100 text-gray-800'

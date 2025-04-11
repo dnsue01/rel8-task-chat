@@ -14,14 +14,14 @@ const Layout: React.FC<LayoutProps> = ({ children, hideSidebar = false }) => {
   const { currentUser } = useCrm();
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col min-h-screen h-screen">
       {/* Top Navigation bar */}
       <div className="w-full">
         <Navbar currentUser={currentUser} />
       </div>
 
       {/* Main content */}
-      <div className="flex-1 overflow-auto bg-gray-50">
+      <div className="flex-1 overflow-auto bg-gray-50 w-full">
         {children}
       </div>
     </div>

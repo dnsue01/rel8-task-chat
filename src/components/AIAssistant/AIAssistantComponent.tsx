@@ -5,11 +5,14 @@ import { Button } from "@/components/ui/button";
 import ChatInterface from "./ChatInterface";
 import { MessageSquare, Calendar, CheckSquare } from "lucide-react";
 import { useIntegrations } from '@/context/IntegrationsContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const AIAssistantComponent: React.FC = () => {
   const [activeTab, setActiveTab] = useState("chat");
   const { calendarEvents, tasks, emails, syncCalendarEvents, syncTasks, syncEmails } = useIntegrations();
   const [selectedPrompt, setSelectedPrompt] = useState<string | null>(null);
+  const isMobile = useIsMobile();
+
   const [templates, setTemplates] = useState([
     {
       id: 1,
@@ -60,18 +63,18 @@ const AIAssistantComponent: React.FC = () => {
   }, [syncCalendarEvents, syncTasks, syncEmails]);
 
   return (
-    <div className="container mx-auto py-6 px-4 max-w-6xl">
-      <div className="flex items-center mb-8">
+    <div className="container mx-auto py-4 sm:py-6 px-2 sm:px-4 max-w-6xl">
+      <div className="flex items-center mb-4 sm:mb-8">
         <div className="bg-purple-600 text-white p-2 rounded-md mr-3">
-          <MessageSquare className="w-6 h-6" />
+          <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6" />
         </div>
-        <h1 className="text-2xl font-bold">Asistente IA</h1>
+        <h1 className="text-xl sm:text-2xl font-bold">Asistente IA</h1>
       </div>
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="mb-6">
-          <TabsTrigger value="chat">Chat</TabsTrigger>
-          <TabsTrigger value="templates">Plantillas</TabsTrigger>
+        <TabsList className="mb-4 sm:mb-6 w-full">
+          <TabsTrigger value="chat" className="flex-1">Chat</TabsTrigger>
+          <TabsTrigger value="templates" className="flex-1">Plantillas</TabsTrigger>
         </TabsList>
         
         <TabsContent value="chat">
@@ -79,20 +82,22 @@ const AIAssistantComponent: React.FC = () => {
         </TabsContent>
         
         <TabsContent value="templates">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
             {templates.map(template => (
-              <div key={template.id} className="border rounded-lg p-6 bg-white shadow-sm">
+              <div key={template.id} className="border rounded-lg p-4 sm:p-6 bg-white shadow-sm">
                 <div className="flex items-center mb-2">
                   {template.icon}
-                  <h3 className="text-lg font-medium">{template.title}</h3>
+                  <h3 className="text-base sm:text-lg font-medium">{template.title}</h3>
                 </div>
-                <p className="text-gray-500 mb-4">{template.description}</p>
+                <p className="text-gray-500 mb-4 text-sm sm:text-base">{template.description}</p>
                 <Button 
                   variant="outline"
+                  size={isMobile ? "sm" : "default"}
                   onClick={() => {
                     setActiveTab("chat");
                     setSelectedPrompt(template.prompt);
                   }}
+                  className="w-full sm:w-auto"
                 >
                   Usar plantilla
                 </Button>
