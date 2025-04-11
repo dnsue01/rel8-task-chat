@@ -60,40 +60,74 @@ export const loadGoogleIdentityScript = (): Promise<void> => {
  * Authenticate with Google and get access token for Calendar and Tasks
  */
 export const loginWithGoogleCalendarAndTasks = async (clientId: string): Promise<string> => {
-  // Load the API client library if not already loaded
-  await loadGoogleApiScript();
-  
-  // Define scopes needed for our application
-  const scope = [
-    "https://www.googleapis.com/auth/calendar",
-    "https://www.googleapis.com/auth/tasks",
-    "email",
-    "profile",
-    "openid"
-  ].join(" ");
+  try {
+    // Load the API client library if not already loaded
+    await loadGoogleApiScript();
 
-  return new Promise((resolve, reject) => {
-    window.gapi.load("client:auth2", async () => {
-      try {
-        await window.gapi.client.init({
-          clientId,
-          scope,
-        });
+    // Define scopes needed for our application
+    const scope = [
+      "https://www.googleapis.com/auth/calendar",
+      "https://www.googleapis.com/auth/tasks",
+      "https://www.googleapis.com/auth/gmail.readonly",
+      "https://www.googleapis.com/auth/contacts.readonly",
+      "email",
+      "profile",
+      "openid"
+    ].join(" ");
 
-        const authInstance = window.gapi.auth2.getAuthInstance();
-        const user = await authInstance.signIn();
-        const authResponse = user.getAuthResponse();
-        
-        // Store auth data in localStorage for persistence
-        localStorage.setItem('google_auth_token', authResponse.access_token);
-        localStorage.setItem('google_auth_expiry', (Date.now() + authResponse.expires_in * 1000).toString());
-        
-        resolve(authResponse.access_token);
-      } catch (error) {
-        reject(error);
-      }
+    return new Promise((resolve, reject) => {
+      window.gapi.load("client:auth2", async () => {
+        try {
+          await window.gapi.client.init({
+            clientId,
+            scope,
+          });
+
+          const authInstance = window.gapi.auth2.getAuthInstance();
+          
+          if (authInstance.isSignedIn.get()) {
+            // User is already signed in
+            const currentUser = authInstance.currentUser.get();
+            const authResponse = currentUser.getAuthResponse();
+            
+            // Store auth data in localStorage for persistence
+            localStorage.setItem('google_auth_token', authResponse.access_token);
+            localStorage.setItem('google_auth_expiry', (Date.now() + authResponse.expires_in * 1000).toString());
+            
+            resolve(authResponse.access_token);
+          } else {
+            // User needs to sign in
+            try {
+              const user = await authInstance.signIn({
+                scope,
+                prompt: 'consent'  // Force re-consent to ensure we get all permissions
+              });
+              const authResponse = user.getAuthResponse();
+              
+              // Store auth data in localStorage for persistence
+              localStorage.setItem('google_auth_token', authResponse.access_token);
+              localStorage.setItem('google_auth_expiry', (Date.now() + authResponse.expires_in * 1000).toString());
+              
+              resolve(authResponse.access_token);
+            } catch (error) {
+              console.error("Error during Google signIn:", error);
+              // User closed the popup or denied access
+              localStorage.setItem('google_auth_error', 'El usuario canceló la autenticación o denegó el acceso');
+              reject(new Error('El usuario canceló la autenticación o denegó el acceso'));
+            }
+          }
+        } catch (error) {
+          console.error("Error initializing Google client:", error);
+          localStorage.setItem('google_auth_error', 'Error al inicializar el cliente de Google');
+          reject(error);
+        }
+      });
     });
-  });
+  } catch (error) {
+    console.error("Error in loginWithGoogleCalendarAndTasks:", error);
+    localStorage.setItem('google_auth_error', 'Error al cargar la biblioteca de Google API');
+    throw error;
+  }
 };
 
 /**
@@ -171,17 +205,30 @@ export const isGoogleAuthenticated = (): boolean => {
  * Sign out from Google
  */
 export const logoutFromGoogle = async (): Promise<void> => {
-  if (window.gapi?.auth2) {
-    const authInstance = window.gapi.auth2.getAuthInstance();
-    if (authInstance) await authInstance.signOut();
+  try {
+    if (window.gapi?.auth2) {
+      const authInstance = window.gapi.auth2.getAuthInstance();
+      if (authInstance) await authInstance.signOut();
+    }
+    
+    if (window.google?.accounts) {
+      window.google.accounts.id.disableAutoSelect();
+    }
+  } catch (error) {
+    console.error("Error during Google sign out:", error);
+  } finally {
+    // Always clean up local storage
+    localStorage.removeItem('google_auth_token');
+    localStorage.removeItem('google_auth_expiry');
+    localStorage.removeItem('google_auth_error');
+    
+    // Also remove any cached data
+    localStorage.removeItem('google_calendar_events');
+    localStorage.removeItem('google_emails');
+    localStorage.removeItem('google_tasks');
+    localStorage.removeItem('google_task_lists');
+    localStorage.removeItem('google_connected');
   }
-  
-  if (window.google?.accounts) {
-    window.google.accounts.id.disableAutoSelect();
-  }
-  
-  localStorage.removeItem('google_auth_token');
-  localStorage.removeItem('google_auth_expiry');
 };
 
 /**

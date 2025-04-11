@@ -35,6 +35,15 @@ export interface TaskList {
   title: string;
 }
 
+export interface Contact {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  company?: string;
+  source: 'google' | 'manual';
+}
+
 export interface Email {
   id: string;
   subject: string;
@@ -50,6 +59,7 @@ export interface IntegrationSyncState {
   lastCalendarSync?: Date;
   lastEmailSync?: Date;
   lastTasksSync?: Date;
+  lastContactsSync?: Date;
 }
 
 export interface MatchResult {

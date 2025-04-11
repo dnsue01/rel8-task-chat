@@ -9,6 +9,9 @@ import { useCrm } from "../context/CrmContext";
 import { Toaster } from "@/components/ui/toaster";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
+import { useIntegrations } from "../context/IntegrationsContext";
+import { useEffect } from "react";
+import { useToast } from "@/components/ui/use-toast";
 
 // Componente de carga
 const LoadingState = () => (
@@ -23,7 +26,27 @@ const LoadingState = () => (
 
 const CrmApp = () => {
   const { isLoading, isAuthenticated, activeContactId, setActiveContactId } = useCrm();
+  const { isGoogleConnected } = useIntegrations();
   const isMobile = useIsMobile();
+  const { toast } = useToast();
+
+  // Check for Google auth callback
+  useEffect(() => {
+    // Check if there's a Google auth callback in the URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const googleAuthCode = urlParams.get('code');
+    const googleAuthState = urlParams.get('state');
+    
+    if (googleAuthCode && googleAuthState === 'google_auth') {
+      toast({
+        title: "Google Auth",
+        description: "Procesando autenticación de Google...",
+      });
+      
+      // Clear the URL params
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [toast]);
 
   // Redirect to login if not authenticated
   if (!isLoading && !isAuthenticated) {

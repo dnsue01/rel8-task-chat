@@ -1,8 +1,7 @@
 
 import { supabase } from "../supabase/client";
 import { getGoogleAccessToken } from "./googleAuth";
-import { CalendarEvent, Email, Task, TaskList } from "@/types/integrations";
-import { parseISO } from "date-fns";
+import { CalendarEvent, Email, Task, TaskList, Contact } from "@/types/integrations";
 
 /**
  * Function to fetch calendar events from Google Calendar API
@@ -35,8 +34,8 @@ export const fetchCalendarEvents = async (): Promise<CalendarEvent[]> => {
           id: item.id,
           title: item.summary || 'No title',
           description: item.description || '',
-          startTime: item.start?.dateTime ? new Date(item.start.dateTime) : new Date(item.start.date),
-          endTime: item.end?.dateTime ? new Date(item.end.dateTime) : new Date(item.end.date),
+          startTime: new Date(item.start?.dateTime || item.start?.date),
+          endTime: new Date(item.end?.dateTime || item.end?.date),
           location: item.location || '',
           attendees: item.attendees ? item.attendees.map((a: any) => a.email) : [],
         }));
@@ -46,6 +45,65 @@ export const fetchCalendarEvents = async (): Promise<CalendarEvent[]> => {
     return [];
   } catch (error) {
     console.error("Error in fetchCalendarEvents:", error);
+    throw error;
+  }
+};
+
+/**
+ * Function to fetch contacts from Google People API
+ * @returns Promise with contacts
+ */
+export const fetchContacts = async (): Promise<Contact[]> => {
+  try {
+    const accessToken = getGoogleAccessToken();
+    if (!accessToken) {
+      throw new Error("No Google access token available");
+    }
+
+    const response = await supabase.functions.invoke("google-oauth", {
+      body: {
+        access_token: accessToken,
+        endpoint: "contacts",
+      },
+    });
+
+    if (response.error) {
+      console.error("Error fetching contacts:", response.error);
+      throw new Error(`Error fetching contacts: ${response.error.message}`);
+    }
+
+    // Transform Google People API response to our Contact format
+    if (response.data && response.data.connections) {
+      const contacts: Contact[] = response.data.connections.map((item: any) => {
+        // Extract name
+        const name = item.names && item.names.length > 0 
+          ? item.names[0].displayName 
+          : 'No name';
+        
+        // Extract email
+        const email = item.emailAddresses && item.emailAddresses.length > 0
+          ? item.emailAddresses[0].value
+          : '';
+          
+        // Extract phone
+        const phone = item.phoneNumbers && item.phoneNumbers.length > 0
+          ? item.phoneNumbers[0].value
+          : '';
+          
+        return {
+          id: item.resourceName,
+          name,
+          email,
+          phone,
+          source: 'google',
+        };
+      });
+      return contacts;
+    }
+    
+    return [];
+  } catch (error) {
+    console.error("Error in fetchContacts:", error);
     throw error;
   }
 };
@@ -123,6 +181,7 @@ export const fetchTasks = async (listId: string): Promise<Task[]> => {
         due: item.due ? new Date(item.due) : undefined,
         status: item.status || 'needsAction',
         completed: item.status === 'completed',
+        listId: listId,
       }));
       return tasks;
     }
@@ -281,30 +340,4 @@ const parseGmailMessage = (message: any): Email | null => {
     console.error('Error parsing Gmail message:', error);
     return null;
   }
-};
-
-/**
- * Function to set the access token and expiration
- * @param token The access token
- * @param expiresIn Time until token expiration in seconds
- */
-export const setAccessToken = (token: string, expiresIn: number) => {
-  // This implementation is not needed anymore as we're using the token from localStorage directly
-};
-
-/**
- * Function to clear the token cache
- */
-export const clearTokenCache = () => {
-  // This implementation is not needed anymore as we're using the token from localStorage directly
-};
-
-/**
- * Function to refresh the access token
- * @returns Promise<string | null> with new access token or null if failed
- */
-export const refreshAccessToken = async (): Promise<string | null> => {
-  // We don't have implementation for token refresh yet
-  // In a real app, you would use the refresh token to get a new access token
-  return null;
 };

@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
-import { Calendar, Mail, AlertCircle, CheckCircle, RefreshCw, ExternalLink, CheckSquare } from "lucide-react";
+import { Calendar, Mail, AlertCircle, CheckCircle, RefreshCw, ExternalLink, CheckSquare, XCircle } from "lucide-react";
 import { googleClient } from '../../integrations/google/googleClient';
 import { useIntegrations } from '../../context/IntegrationsContext';
 import { supabase } from "@/integrations/supabase/client";
@@ -16,10 +16,27 @@ const GoogleIntegration: React.FC = () => {
   const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
   const [isSyncingEmails, setIsSyncingEmails] = useState(false);
   const [isSyncingTasks, setIsSyncingTasks] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   const { toast } = useToast();
+
+  // Check for auth errors in local storage
+  useEffect(() => {
+    const googleAuthError = localStorage.getItem('google_auth_error');
+    if (googleAuthError) {
+      setConnectionError(googleAuthError);
+      toast({
+        variant: "destructive",
+        title: "Error de conexión",
+        description: googleAuthError,
+      });
+      // Clear the error
+      localStorage.removeItem('google_auth_error');
+    }
+  }, [toast]);
 
   const handleConnect = async () => {
     setIsLoading(true);
+    setConnectionError(null);
     try {
       await connectGoogleCalendar();
       toast({
@@ -28,10 +45,13 @@ const GoogleIntegration: React.FC = () => {
       });
     } catch (error) {
       console.error('Error connecting to Google:', error);
+      const errorMessage = error instanceof Error ? error.message : "Error desconocido al conectar con Google";
+      setConnectionError(errorMessage);
+      localStorage.setItem('google_auth_error', errorMessage);
       toast({
         variant: "destructive",
         title: "Error de conexión",
-        description: "No se pudo conectar con Google. Inténtalo de nuevo.",
+        description: errorMessage,
       });
     } finally {
       setIsLoading(false);
@@ -46,6 +66,7 @@ const GoogleIntegration: React.FC = () => {
         title: "Desconectado con éxito",
         description: "Tu cuenta de Google ha sido desconectada correctamente",
       });
+      setConnectionError(null);
     } catch (error) {
       toast({
         variant: "destructive",
@@ -143,7 +164,7 @@ const GoogleIntegration: React.FC = () => {
         toast({
           variant: "destructive",
           title: "Error en Edge Function",
-          description: "No se pudo llamar a la función de Edge. Revisa la consola para más detalles.",
+          description: `${error.message || "Error al llamar la función Edge"}`,
         });
         return;
       }
@@ -180,6 +201,20 @@ const GoogleIntegration: React.FC = () => {
         </div>
       </CardHeader>
       <CardContent>
+        {connectionError && (
+          <Alert variant="destructive" className="mb-4">
+            <XCircle className="h-4 w-4" />
+            <AlertTitle>Error de conexión</AlertTitle>
+            <AlertDescription>
+              {connectionError}
+              <p className="mt-2 text-sm">
+                Asegúrate de que has habilitado las APIs necesarias en tu proyecto de Google Cloud
+                y que los permisos de OAuth están configurados correctamente.
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <Alert className="mb-4">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Estado de la integración</AlertTitle>
@@ -191,6 +226,7 @@ const GoogleIntegration: React.FC = () => {
             <ul className="list-disc list-inside mt-2 space-y-1">
               <li>Asegúrate de tener los permisos de Calendar, Tasks y Gmail activados</li>
               <li>Si encuentras problemas, revisa la consola para más detalles</li>
+              <li>Verifica que las redirecciones de OAuth estén correctamente configuradas</li>
             </ul>
           </AlertDescription>
         </Alert>

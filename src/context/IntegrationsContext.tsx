@@ -1,8 +1,10 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { CalendarEvent, Email, GoogleAuthConfig, IntegrationSyncState, MatchResult, Task, TaskList } from "../types/integrations";
+import { CalendarEvent, Email, GoogleAuthConfig, IntegrationSyncState, MatchResult, Task, TaskList, Contact } from "../types/integrations";
 import { useCrm } from "./CrmContext";
 import { googleClient } from "../integrations/google/googleClient";
 import { parseISO } from "date-fns";
+import { fetchCalendarEvents, fetchContacts, fetchEmails, fetchTaskLists, fetchTasks } from "../integrations/google/googleApi";
 
 interface IntegrationsContextType {
   // Google
@@ -15,6 +17,10 @@ interface IntegrationsContextType {
   syncCalendarEvents: () => Promise<void>;
   getEventsForDate: (date: Date) => CalendarEvent[];
   linkNoteToEvent: (noteId: string, eventId: string) => void;
+  
+  // Contacts
+  contacts: Contact[];
+  syncContacts: () => Promise<void>;
   
   // Tasks
   tasks: Task[];
@@ -42,6 +48,7 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [isGoogleConnected, setIsGoogleConnected] = useState(false);
   const [googleConfig, setGoogleConfig] = useState<GoogleAuthConfig | null>(null);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [emails, setEmails] = useState<Email[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [taskLists, setTaskLists] = useState<TaskList[]>([]);
@@ -53,6 +60,7 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   useEffect(() => {
     const savedGoogleConfig = localStorage.getItem('google_auth_config');
     const savedCalendarEvents = localStorage.getItem('google_calendar_events');
+    const savedContacts = localStorage.getItem('google_contacts');
     const savedEmails = localStorage.getItem('google_emails');
     const savedTasks = localStorage.getItem('google_tasks');
     const savedTaskLists = localStorage.getItem('google_task_lists');
@@ -66,6 +74,9 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         startTime: parseISO(event.startTime as unknown as string),
         endTime: parseISO(event.endTime as unknown as string),
       })));
+    }
+    if (savedContacts) {
+      setContacts(JSON.parse(savedContacts));
     }
     if (savedEmails) {
       const parsedEmails = JSON.parse(savedEmails) as Email[];
@@ -91,6 +102,7 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         lastCalendarSync: parsedSyncState.lastCalendarSync ? new Date(parsedSyncState.lastCalendarSync) : undefined,
         lastEmailSync: parsedSyncState.lastEmailSync ? new Date(parsedSyncState.lastEmailSync) : undefined,
         lastTasksSync: parsedSyncState.lastTasksSync ? new Date(parsedSyncState.lastTasksSync) : undefined,
+        lastContactsSync: parsedSyncState.lastContactsSync ? new Date(parsedSyncState.lastContactsSync) : undefined,
       });
     }
   }, []);
@@ -111,7 +123,7 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           accessToken: result.data.accessToken,
           refreshToken: 'not_implemented',
           expiresAt: Date.now() + 3600 * 1000,
-          scope: 'calendar tasks email',
+          scope: 'calendar tasks email contacts',
         };
         
         setGoogleConfig(newConfig);
@@ -125,7 +137,8 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         await Promise.all([
           syncCalendarEvents(),
           syncEmails(),
-          syncTasks()
+          syncTasks(),
+          syncContacts()
         ]);
       }
     } catch (error) {
@@ -148,6 +161,7 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       localStorage.removeItem('google_task_lists');
       localStorage.removeItem('google_connected');
       localStorage.removeItem('google_auth_expiry');
+      localStorage.removeItem('google_contacts');
       
       // Reset state
       setGoogleConfig(null);
@@ -155,6 +169,7 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setEmails([]);
       setTasks([]);
       setTaskLists([]);
+      setContacts([]);
       setIsGoogleConnected(false);
     } catch (error) {
       console.error('Error disconnecting from Google:', error);
@@ -162,94 +177,100 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
   
-  // Sync calendar events - Real implementation using Google API
+  // Sync calendar events
   const syncCalendarEvents = async (): Promise<void> => {
     try {
-      const events = await googleClient.fetchCalendarEvents();
+      const events = await fetchCalendarEvents();
       
-      if (events.success && events.data) {
-        // Set the events
-        setCalendarEvents(events.data);
-        
-        // Save to localStorage
-        localStorage.setItem('google_calendar_events', JSON.stringify(events.data));
-        
-        // Update sync state
-        const newSyncState = { ...syncState, lastCalendarSync: new Date() };
-        setSyncState(newSyncState);
-        localStorage.setItem('integration_sync_state', JSON.stringify(newSyncState));
-      } else {
-        throw new Error("Failed to fetch calendar events");
-      }
+      // Set the events
+      setCalendarEvents(events);
+      
+      // Save to localStorage
+      localStorage.setItem('google_calendar_events', JSON.stringify(events));
+      
+      // Update sync state
+      const newSyncState = { ...syncState, lastCalendarSync: new Date() };
+      setSyncState(newSyncState);
+      localStorage.setItem('integration_sync_state', JSON.stringify(newSyncState));
     } catch (error) {
       console.error('Error syncing calendar events:', error);
       throw error;
     }
   };
 
-  // Sync tasks - Real implementation using Google API
+  // Sync contacts
+  const syncContacts = async (): Promise<void> => {
+    try {
+      const googleContacts = await fetchContacts();
+      
+      // Set the contacts
+      setContacts(googleContacts);
+      
+      // Save to localStorage
+      localStorage.setItem('google_contacts', JSON.stringify(googleContacts));
+      
+      // Update sync state
+      const newSyncState = { ...syncState, lastContactsSync: new Date() };
+      setSyncState(newSyncState);
+      localStorage.setItem('integration_sync_state', JSON.stringify(newSyncState));
+    } catch (error) {
+      console.error('Error syncing contacts:', error);
+      throw error;
+    }
+  };
+
+  // Sync tasks
   const syncTasks = async (): Promise<void> => {
     try {
       // First fetch task lists
-      const taskListsResult = await googleClient.fetchTaskLists();
+      const taskListsResult = await fetchTaskLists();
       
-      if (taskListsResult.success && taskListsResult.data) {
-        // Save task lists
-        setTaskLists(taskListsResult.data);
-        localStorage.setItem('google_task_lists', JSON.stringify(taskListsResult.data));
-        
-        // Now fetch tasks for each list
-        const allTasks: Task[] = [];
-        
-        for (const list of taskListsResult.data) {
-          try {
-            const tasksResult = await googleClient.fetchTasks(list.id);
-            
-            if (tasksResult.success && tasksResult.data) {
-              allTasks.push(...tasksResult.data);
-            }
-          } catch (err) {
-            console.error(`Error fetching tasks for list ${list.id}:`, err);
-            // Continue with other lists even if one fails
-          }
+      // Save task lists
+      setTaskLists(taskListsResult);
+      localStorage.setItem('google_task_lists', JSON.stringify(taskListsResult));
+      
+      // Now fetch tasks for each list
+      const allTasks: Task[] = [];
+      
+      for (const list of taskListsResult) {
+        try {
+          const listTasks = await fetchTasks(list.id);
+          allTasks.push(...listTasks);
+        } catch (err) {
+          console.error(`Error fetching tasks for list ${list.id}:`, err);
+          // Continue with other lists even if one fails
         }
-        
-        // Save all tasks
-        setTasks(allTasks);
-        localStorage.setItem('google_tasks', JSON.stringify(allTasks));
-        
-        // Update sync state
-        const newSyncState = { ...syncState, lastTasksSync: new Date() };
-        setSyncState(newSyncState);
-        localStorage.setItem('integration_sync_state', JSON.stringify(newSyncState));
-      } else {
-        throw new Error("Failed to fetch task lists");
       }
+      
+      // Save all tasks
+      setTasks(allTasks);
+      localStorage.setItem('google_tasks', JSON.stringify(allTasks));
+      
+      // Update sync state
+      const newSyncState = { ...syncState, lastTasksSync: new Date() };
+      setSyncState(newSyncState);
+      localStorage.setItem('integration_sync_state', JSON.stringify(newSyncState));
     } catch (error) {
       console.error('Error syncing tasks:', error);
       throw error;
     }
   };
   
-  // Sync emails - Real implementation using Google API
+  // Sync emails
   const syncEmails = async (): Promise<void> => {
     try {
-      const emailsResult = await googleClient.fetchEmails();
+      const emailList = await fetchEmails();
       
-      if (emailsResult.success && emailsResult.data) {
-        // Set the emails
-        setEmails(emailsResult.data);
-        
-        // Save to localStorage
-        localStorage.setItem('google_emails', JSON.stringify(emailsResult.data));
-        
-        // Update sync state
-        const newSyncState = { ...syncState, lastEmailSync: new Date() };
-        setSyncState(newSyncState);
-        localStorage.setItem('integration_sync_state', JSON.stringify(newSyncState));
-      } else {
-        throw new Error("Failed to fetch emails");
-      }
+      // Set the emails
+      setEmails(emailList);
+      
+      // Save to localStorage
+      localStorage.setItem('google_emails', JSON.stringify(emailList));
+      
+      // Update sync state
+      const newSyncState = { ...syncState, lastEmailSync: new Date() };
+      setSyncState(newSyncState);
+      localStorage.setItem('integration_sync_state', JSON.stringify(newSyncState));
     } catch (error) {
       console.error('Error syncing emails:', error);
       throw error;
@@ -434,6 +455,8 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       syncCalendarEvents,
       getEventsForDate,
       linkNoteToEvent,
+      contacts,
+      syncContacts,
       tasks,
       taskLists,
       syncTasks,

@@ -15,7 +15,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { access_token, endpoint, message_id, task_list_id } = body;
+    const { access_token, endpoint, message_id, task_list_id, person_id } = body;
 
     if (!access_token) {
       return new Response(
@@ -40,6 +40,21 @@ serve(async (req) => {
               "&timeMax=" + encodeURIComponent(thirtyDaysLater.toISOString()) +
               "&singleEvents=true" +
               "&orderBy=startTime";
+        break;
+      case "contacts":
+        // Get user's contacts
+        url = "https://people.googleapis.com/v1/people/me/connections" + 
+              "?personFields=names,emailAddresses,phoneNumbers" +
+              "&pageSize=50";
+        break;
+      case "person":
+        if (!person_id) {
+          return new Response(
+            JSON.stringify({ error: "Person ID is required for person endpoint" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        url = `https://people.googleapis.com/v1/${person_id}?personFields=names,emailAddresses,phoneNumbers,organizations,addresses`;
         break;
       case "tasks/lists":
         url = "https://tasks.googleapis.com/tasks/v1/users/@me/lists";
@@ -72,7 +87,7 @@ serve(async (req) => {
         );
     }
 
-    console.log(`Calling Google API ${endpoint} endpoint...`);
+    console.log(`Calling Google API ${endpoint} endpoint: ${url}`);
     
     const response = await fetch(url, {
       headers: {
