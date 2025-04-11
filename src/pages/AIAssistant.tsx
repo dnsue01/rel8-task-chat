@@ -10,6 +10,7 @@ import { MessageSquare, Sparkles, Send, Loader2, User, Info } from "lucide-react
 import { useToast } from "@/components/ui/use-toast";
 import { useCrm } from "../context/CrmContext";
 import { useIntegrations } from "../context/IntegrationsContext";
+import { supabase } from "../integrations/supabase/client";
 
 type Message = {
   id: string;
@@ -87,9 +88,19 @@ const AIAssistant = () => {
     setContextSummary(summary);
   }, [contacts, tasks, notes, calendarEvents, emails]);
 
+  // Check if API key is stored in localStorage
+  useEffect(() => {
+    const storedKey = localStorage.getItem("openai_api_key");
+    if (storedKey) {
+      setApiKey(storedKey);
+      setIsApiKeySet(true);
+    }
+  }, []);
+
   const handleApiKeySubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (apiKey.trim().length > 0) {
+      localStorage.setItem("openai_api_key", apiKey);
       setIsApiKeySet(true);
       toast({
         title: "API Key configurada",
@@ -115,71 +126,51 @@ const AIAssistant = () => {
     setPrompt("");
     setIsLoading(true);
 
-    // Simulate AI response that incorporates contextual information
-    setTimeout(() => {
-      // Here we would normally send the prompt and context to an actual AI model
-      // For demo purposes, we're simulating a response that uses the context
-      
-      let aiResponseText = "Aquí está mi respuesta simulada basada en tu información del CRM. ";
-      
-      // Use the context to make the response more personalized
-      if (contextSummary) {
-        // Extract keywords from the user's message to personalize the response
-        const userPrompt = prompt.toLowerCase();
-        
-        if (userPrompt.includes("contacto") || userPrompt.includes("contactos")) {
-          aiResponseText += `Veo que tienes ${contacts.length} contactos en tu CRM. `;
-          if (contacts.length > 0) {
-            aiResponseText += `Algunos de ellos son ${contacts.slice(0, 3).map(c => c.name).join(", ")}. `;
-          }
-        } 
-        else if (userPrompt.includes("tarea") || userPrompt.includes("tareas")) {
-          const pendingTasks = tasks.filter(t => t.status !== "completed" && t.status !== "done");
-          aiResponseText += `Tienes ${pendingTasks.length} tareas pendientes. `;
-          if (pendingTasks.length > 0) {
-            aiResponseText += `Las más urgentes son: ${pendingTasks.slice(0, 2).map(t => t.title).join(", ")}. `;
-          }
+    try {
+      // Call OpenAI API through our Supabase Edge Function
+      const response = await supabase.functions.invoke("openai-chat", {
+        body: {
+          prompt: prompt,
+          context: contextSummary,
+          apiKey: apiKey,
+          messages: messages.slice(-6) // Send the last 6 messages for context
         }
-        else if (userPrompt.includes("nota") || userPrompt.includes("notas")) {
-          aiResponseText += `Has guardado ${notes.length} notas en tu CRM. `;
-          if (notes.length > 0) {
-            aiResponseText += `Una de tus notas recientes menciona: "${notes[0].content.substring(0, 50)}${notes[0].content.length > 50 ? '...' : ''}". `;
-          }
-        }
-        else if (userPrompt.includes("calendario") || userPrompt.includes("evento")) {
-          if (calendarEvents && calendarEvents.length > 0) {
-            aiResponseText += `Tienes ${calendarEvents.length} eventos próximos en tu calendario. `;
-          } else {
-            aiResponseText += "No veo eventos próximos en tu calendario. ";
-          }
-        }
-        else if (userPrompt.includes("email") || userPrompt.includes("correo")) {
-          if (emails && emails.length > 0) {
-            aiResponseText += `Tienes ${emails.length} emails recientes. `;
-          } else {
-            aiResponseText += "No veo emails recientes. ";
-          }
-        }
-        else {
-          // Generic response using context summary
-          aiResponseText += contextSummary;
-        }
-      } else {
-        aiResponseText += "No tengo información de tu CRM para personalizar mi respuesta. ";
+      });
+
+      if (response.error) {
+        throw new Error(`Error al procesar tu consulta: ${response.error.message}`);
       }
-      
-      aiResponseText += "En una implementación real, conectaría con un modelo de IA como ChatGPT para darte respuestas más precisas basadas en tu CRM.";
-      
+
+      // Add AI response to the chat
       const aiResponse: Message = {
         id: `ai-${Date.now()}`,
-        text: aiResponseText,
+        text: response.data.text || "Lo siento, no pude procesar tu consulta en este momento.",
         sender: "ai",
         timestamp: new Date(),
       };
       
       setMessages((prev) => [...prev, aiResponse]);
+    } catch (error) {
+      console.error("Error calling OpenAI:", error);
+      
+      // Add error message to chat
+      const errorMessage: Message = {
+        id: `error-${Date.now()}`,
+        text: "Lo siento, ha ocurrido un error al procesar tu consulta. Por favor, intenta nuevamente.",
+        sender: "ai",
+        timestamp: new Date(),
+      };
+      
+      setMessages((prev) => [...prev, errorMessage]);
+      
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "No se pudo conectar con la API de OpenAI. Verifica tu API Key y tu conexión.",
+      });
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   return (
