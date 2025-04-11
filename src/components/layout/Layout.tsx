@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, X, User, LogOut, Calendar, Mail } from "lucide-react";
-import { useMobile } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-mobile"; // Fixed: Changed useMobile to useIsMobile
 import { useCrm } from "../../context/CrmContext";
 import { useIntegrations } from "../../context/IntegrationsContext";
 import ContactSidebar from "../sidebar/ContactSidebar";
@@ -14,7 +14,7 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children, hideSidebar = false }) => {
-  const isMobile = useMobile();
+  const isMobile = useIsMobile();
   const navigate = useNavigate();
   const { logout, currentUser } = useCrm();
   const { isGoogleConnected } = useIntegrations();
@@ -106,7 +106,8 @@ const Layout: React.FC<LayoutProps> = ({ children, hideSidebar = false }) => {
                 : "w-64 border-r"
             }`}
           >
-            <ContactSidebar onClose={() => setMenuOpen(false)} />
+            {/* Fixed: Removed the onClose prop since ContactSidebar doesn't accept it */}
+            <ContactSidebar />
           </div>
         )}
         <div className={`flex-1 overflow-auto ${!hideSidebar && !isMobile ? "ml-64" : ""}`}>
