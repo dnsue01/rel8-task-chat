@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { AtSign, KeyRound, ArrowRight, UserPlus, LogIn, ArrowLeft } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { googleClient } from "../integrations/google/googleClient";
+import { loadGoogleIdentityScript } from "../integrations/google/googleAuth";
 
 const Auth: React.FC = () => {
   const [email, setEmail] = useState("");
@@ -23,8 +24,13 @@ const Auth: React.FC = () => {
   const googleSignInButtonRegisterRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Preload the Google Identity Services script
+    loadGoogleIdentityScript().catch(err => {
+      console.error("Failed to load Google Identity Services:", err);
+    });
+    
     // Render Google Sign-In buttons for both login and register tabs
-    const renderGoogleButtons = () => {
+    const renderGoogleButtons = async () => {
       // Render for login tab
       if (googleSignInButtonRef.current) {
         const handleGoogleResponse = async (response: any) => {
@@ -73,7 +79,7 @@ const Auth: React.FC = () => {
     // Small delay to ensure DOM elements are ready
     const timer = setTimeout(() => {
       renderGoogleButtons();
-    }, 100);
+    }, 300);
 
     return () => clearTimeout(timer);
   }, [loginWithGoogle, navigate, toast]);
@@ -305,6 +311,57 @@ const Auth: React.FC = () => {
       </div>
     </div>
   );
+
+  function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
+    
+    try {
+      login(email, password);
+      toast({
+        title: "Inicio de sesión exitoso",
+        description: "Bienvenido a tu CRM personal",
+      });
+      navigate("/app");
+    } catch (error) {
+      toast({
+        title: "Error al iniciar sesión",
+        description: error instanceof Error ? error.message : "Credenciales inválidas",
+        variant: "destructive",
+      });
+    }
+  }
+
+  function handleRegister(e: React.FormEvent) {
+    e.preventDefault();
+    
+    if (!name || !email || !password) {
+      toast({
+        title: "Campos incompletos",
+        description: "Por favor completa todos los campos",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      register(name, email, password);
+      toast({
+        title: "Registro exitoso",
+        description: "Tu cuenta ha sido creada. ¡Bienvenido!",
+      });
+      navigate("/app");
+    } catch (error) {
+      toast({
+        title: "Error al registrarse",
+        description: error instanceof Error ? error.message : "No se pudo crear la cuenta",
+        variant: "destructive",
+      });
+    }
+  }
+
+  function goBack() {
+    navigate('/');
+  }
 };
 
 export default Auth;

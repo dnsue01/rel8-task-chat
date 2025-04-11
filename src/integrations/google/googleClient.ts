@@ -1,5 +1,5 @@
 
-// Real Google API integration that replaces the simulated version
+// Real Google API integration using Google Identity Services (GIS)
 
 import { 
   loginWithGoogleCalendarAndTasks, 
@@ -8,18 +8,18 @@ import {
   initGoogleOneTap,
   renderGoogleSignInButton 
 } from './googleAuth';
-import { fetchCalendarEvents, fetchEmails, fetchEmailDetails, fetchTaskLists, fetchTasks } from './googleApi';
+import { fetchCalendarEvents, fetchEmails, fetchEmailDetails, fetchTaskLists, fetchTasks, fetchContacts } from './googleApi';
 import { CalendarEvent, Email } from "../../types/integrations";
 
-// Client ID from Google Developer Console should be configured here
+// Client ID from Google Developer Console
 // In a real application, this would be stored in environment variables
-const GOOGLE_CLIENT_ID = "179854550183-6bf7ghpsunb8noibvshi2vsna54dle91.apps.googleusercontent.com"; // Replace with your actual client ID
+const GOOGLE_CLIENT_ID = "179854550183-6bf7ghpsunb8noibvshi2vsna54dle91.apps.googleusercontent.com";
 
 export const googleClient = {
   // Authentication
   initiateGoogleAuth: async () => {
     try {
-      // Begin the OAuth flow with Google
+      // Begin OAuth flow with Google using GIS
       const accessToken = await loginWithGoogleCalendarAndTasks(GOOGLE_CLIENT_ID);
       return { 
         success: true, 
@@ -58,7 +58,7 @@ export const googleClient = {
 
   renderGoogleSignInButton: async (elementId: string, callback: (response: any) => void) => {
     try {
-      await renderGoogleSignInButton(GOOGLE_CLIENT_ID, elementId, callback);
+      await renderGoogleSignInButton(elementId, callback);
       return { success: true };
     } catch (error) {
       console.error("Error rendering Google Sign In button:", error);
@@ -107,6 +107,17 @@ export const googleClient = {
       console.error("Error fetching emails:", error);
       return { success: false, error };
     }
+  },
+  
+  // Contacts
+  fetchContacts: async (): Promise<{ success: boolean, data?: any[], error?: any }> => {
+    try {
+      const contacts = await fetchContacts();
+      return { success: true, data: contacts };
+    } catch (error) {
+      console.error("Error fetching contacts:", error);
+      return { success: false, error };
+    }
   }
 };
 
@@ -115,9 +126,9 @@ export const googleClient = {
 To complete the integration with Google:
 
 1. Create a project in the Google Cloud Console (https://console.cloud.google.com/)
-2. Enable the Google Calendar API, Tasks API, and optionally the Gmail API
+2. Enable the Google Calendar API, Tasks API, Gmail API, and People API
 3. Create OAuth 2.0 credentials and copy the Client ID
-4. Replace the GOOGLE_CLIENT_ID placeholder in this file
+4. Replace the GOOGLE_CLIENT_ID placeholder in this file if needed
 5. Configure the authorized JavaScript origins to include your app's domain
 6. Configure the authorized redirect URIs to include your app's callback URL
 

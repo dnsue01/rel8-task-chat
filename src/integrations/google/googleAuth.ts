@@ -1,37 +1,23 @@
 
-// This file handles Google API authentication
-// Required for Google Calendar and Tasks integration
+// This file handles Google API authentication using Google Identity Services
+// Required for Google Calendar, Tasks, Gmail, and Contacts integration
 
-// Define a global type for the window object to include gapi
+// Define a global type for the window object to include google identity services
 declare global {
   interface Window {
-    gapi: any;
     google: any;
+    gapi: any; // Keep for backward compatibility during migration
   }
 }
 
-/**
- * Loads the Google API client library
- */
-export const loadGoogleApiScript = (): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    // Skip if the script is already loaded
-    if (window.gapi) {
-      resolve();
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = "https://apis.google.com/js/api.js";
-    script.async = true;
-    script.defer = true;
-    
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Failed to load Google API script"));
-    
-    document.body.appendChild(script);
-  });
-};
+// Define TokenResponse interface
+export interface TokenResponse {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+  scope: string;
+  error?: string;
+}
 
 /**
  * Loads the Google Identity Services library for OAuth
@@ -57,75 +43,93 @@ export const loadGoogleIdentityScript = (): Promise<void> => {
 };
 
 /**
- * Authenticate with Google and get access token for Calendar and Tasks
+ * Loads the Google API client library (gapi, still needed for some API calls)
+ */
+export const loadGapiScript = (): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    // Skip if the script is already loaded
+    if (window.gapi) {
+      resolve();
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://apis.google.com/js/api.js";
+    script.async = true;
+    script.defer = true;
+    
+    script.onload = () => {
+      // Initialize gapi client
+      window.gapi.load('client', resolve);
+    };
+    script.onerror = () => reject(new Error("Failed to load Google API script"));
+    
+    document.body.appendChild(script);
+  });
+};
+
+/**
+ * Authenticate with Google and get access token using Google Identity Services
  */
 export const loginWithGoogleCalendarAndTasks = async (clientId: string): Promise<string> => {
   try {
-    // Load the API client library if not already loaded
-    await loadGoogleApiScript();
-
-    // Define scopes needed for our application
-    const scope = [
-      "https://www.googleapis.com/auth/calendar",
-      "https://www.googleapis.com/auth/tasks",
-      "https://www.googleapis.com/auth/gmail.readonly",
-      "https://www.googleapis.com/auth/contacts.readonly",
-      "email",
-      "profile",
-      "openid"
-    ].join(" ");
+    // Load the Google Identity Services library
+    await loadGoogleIdentityScript();
+    
+    // For API calls, we still need to load gapi but not auth2
+    await loadGapiScript();
 
     return new Promise((resolve, reject) => {
-      window.gapi.load("client:auth2", async () => {
-        try {
-          await window.gapi.client.init({
-            clientId,
-            scope,
-          });
+      if (!window.google?.accounts?.oauth2) {
+        reject(new Error("Google Identity Services not loaded"));
+        return;
+      }
 
-          const authInstance = window.gapi.auth2.getAuthInstance();
-          
-          if (authInstance.isSignedIn.get()) {
-            // User is already signed in
-            const currentUser = authInstance.currentUser.get();
-            const authResponse = currentUser.getAuthResponse();
-            
-            // Store auth data in localStorage for persistence
-            localStorage.setItem('google_auth_token', authResponse.access_token);
-            localStorage.setItem('google_auth_expiry', (Date.now() + authResponse.expires_in * 1000).toString());
-            
-            resolve(authResponse.access_token);
-          } else {
-            // User needs to sign in
-            try {
-              const user = await authInstance.signIn({
-                scope,
-                prompt: 'consent'  // Force re-consent to ensure we get all permissions
-              });
-              const authResponse = user.getAuthResponse();
-              
-              // Store auth data in localStorage for persistence
-              localStorage.setItem('google_auth_token', authResponse.access_token);
-              localStorage.setItem('google_auth_expiry', (Date.now() + authResponse.expires_in * 1000).toString());
-              
-              resolve(authResponse.access_token);
-            } catch (error) {
-              console.error("Error during Google signIn:", error);
-              // User closed the popup or denied access
-              localStorage.setItem('google_auth_error', 'El usuario canceló la autenticación o denegó el acceso');
-              reject(new Error('El usuario canceló la autenticación o denegó el acceso'));
-            }
+      // Define scopes needed for our application
+      const scope = [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/tasks",
+        "https://www.googleapis.com/auth/gmail.readonly",
+        "https://www.googleapis.com/auth/contacts.readonly",
+        "email",
+        "profile",
+        "openid"
+      ].join(" ");
+
+      // Initialize token client
+      const client = window.google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: scope,
+        callback: (response: TokenResponse) => {
+          if (response.error) {
+            console.error("Error during Google authentication:", response.error);
+            localStorage.setItem('google_auth_error', `Error de autenticación: ${response.error}`);
+            reject(new Error(`Authentication error: ${response.error}`));
+            return;
           }
-        } catch (error) {
-          console.error("Error initializing Google client:", error);
-          localStorage.setItem('google_auth_error', 'Error al inicializar el cliente de Google');
+          
+          if (response.access_token) {
+            // Store auth data in localStorage for persistence
+            localStorage.setItem('google_auth_token', response.access_token);
+            localStorage.setItem('google_auth_expiry', (Date.now() + response.expires_in * 1000).toString());
+            resolve(response.access_token);
+          } else {
+            reject(new Error("No access token received"));
+          }
+        },
+        error_callback: (error: any) => {
+          console.error("Error during Google authentication:", error);
+          localStorage.setItem('google_auth_error', 'Error durante la autenticación de Google');
           reject(error);
         }
       });
+
+      // Request the access token
+      client.requestAccessToken();
     });
   } catch (error) {
     console.error("Error in loginWithGoogleCalendarAndTasks:", error);
-    localStorage.setItem('google_auth_error', 'Error al cargar la biblioteca de Google API');
+    localStorage.setItem('google_auth_error', 'Error al cargar la biblioteca de Google Identity Services');
     throw error;
   }
 };
@@ -154,7 +158,6 @@ export const initGoogleOneTap = async (clientId: string, callback: (response: an
  * Render a Google Sign In button in the provided element
  */
 export const renderGoogleSignInButton = async (
-  clientId: string, 
   elementId: string,
   callback: (response: any) => void
 ): Promise<void> => {
@@ -165,7 +168,7 @@ export const renderGoogleSignInButton = async (
   }
 
   window.google.accounts.id.initialize({
-    client_id: clientId,
+    client_id: "179854550183-6bf7ghpsunb8noibvshi2vsna54dle91.apps.googleusercontent.com",
     callback,
   });
 
@@ -206,11 +209,8 @@ export const isGoogleAuthenticated = (): boolean => {
  */
 export const logoutFromGoogle = async (): Promise<void> => {
   try {
-    if (window.gapi?.auth2) {
-      const authInstance = window.gapi.auth2.getAuthInstance();
-      if (authInstance) await authInstance.signOut();
-    }
-    
+    // For GIS, we don't need to call a signOut method,
+    // we just need to remove the token
     if (window.google?.accounts) {
       window.google.accounts.id.disableAutoSelect();
     }
@@ -227,6 +227,7 @@ export const logoutFromGoogle = async (): Promise<void> => {
     localStorage.removeItem('google_emails');
     localStorage.removeItem('google_tasks');
     localStorage.removeItem('google_task_lists');
+    localStorage.removeItem('google_contacts');
     localStorage.removeItem('google_connected');
   }
 };
