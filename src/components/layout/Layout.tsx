@@ -1,78 +1,118 @@
 
 import React, { useState } from "react";
-import { Menu, X, LogOut } from "lucide-react";
-import { useCrm } from "../../context/CrmContext";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
+import { Menu, X, User, LogOut, Calendar, Mail } from "lucide-react";
+import { useMobile } from "@/hooks/use-mobile";
+import { useCrm } from "../../context/CrmContext";
+import { useIntegrations } from "../../context/IntegrationsContext";
+import ContactSidebar from "../sidebar/ContactSidebar";
 
 interface LayoutProps {
   children: React.ReactNode;
+  hideSidebar?: boolean;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const { logout, currentUser } = useCrm();
+const Layout: React.FC<LayoutProps> = ({ children, hideSidebar = false }) => {
+  const isMobile = useMobile();
   const navigate = useNavigate();
-  const { toast } = useToast();
-
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
-  };
-
+  const { logout, currentUser } = useCrm();
+  const { isGoogleConnected } = useIntegrations();
+  const [menuOpen, setMenuOpen] = useState(false);
+  
   const handleLogout = () => {
     logout();
-    toast({
-      title: "Sesión cerrada",
-      description: "Has cerrado sesión correctamente",
-    });
-    navigate("/");
+    navigate('/auth');
   };
-
+  
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Mobile sidebar toggle */}
-      <div className="lg:hidden fixed top-4 left-4 z-50">
-        <button
-          onClick={toggleSidebar}
-          className="p-2 rounded-md bg-primary text-white shadow-md"
-        >
-          {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
-      </div>
-
-      {/* Header with user info and logout */}
-      <div className="fixed top-0 right-0 p-4 z-40">
-        {currentUser && (
-          <div className="flex items-center gap-3 bg-white rounded-full shadow-sm px-4 py-2">
-            <div className="text-right text-sm hidden md:block">
-              <p className="font-medium">{currentUser.name}</p>
-              <p className="text-xs text-gray-500">{currentUser.email}</p>
+    <div className="flex flex-col h-screen">
+      {/* Navbar */}
+      <header className="bg-white border-b">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center">
+              {isMobile && !hideSidebar && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setMenuOpen(!menuOpen)}
+                  className="mr-2"
+                >
+                  {menuOpen ? <X size={20} /> : <Menu size={20} />}
+                </Button>
+              )}
+              <span className="text-xl font-bold text-primary">CRM Personal</span>
             </div>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={handleLogout}
-              className="text-gray-500 hover:text-red-500"
-            >
-              <LogOut size={18} />
-            </Button>
+            
+            {currentUser && (
+              <div className="flex items-center space-x-4">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => navigate('/app')}
+                >
+                  Contactos
+                </Button>
+                
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => navigate('/integrations')}
+                  className="flex items-center gap-2"
+                >
+                  <div className="flex gap-1">
+                    <Calendar className="h-4 w-4" />
+                    <Mail className="h-4 w-4" />
+                  </div>
+                  Integraciones
+                  {isGoogleConnected && (
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                  )}
+                </Button>
+                
+                <div className="flex items-center border-l pl-4 ml-2">
+                  <div className="flex items-center mr-4">
+                    <div className="h-8 w-8 bg-primary/10 rounded-full flex items-center justify-center text-primary mr-2">
+                      <User size={16} />
+                    </div>
+                    <span className="text-sm font-medium">{currentUser.name}</span>
+                  </div>
+                  
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleLogout}
+                    title="Cerrar sesión"
+                  >
+                    <LogOut size={18} />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+      
+      {/* Main content */}
+      <div className="flex-1 flex overflow-hidden">
+        {!hideSidebar && (
+          <div
+            className={`${
+              isMobile
+                ? `fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 ease-in-out ${
+                    menuOpen ? "translate-x-0" : "-translate-x-full"
+                  }`
+                : "w-64 border-r"
+            }`}
+          >
+            <ContactSidebar onClose={() => setMenuOpen(false)} />
           </div>
         )}
+        <div className={`flex-1 overflow-auto ${!hideSidebar && !isMobile ? "ml-64" : ""}`}>
+          {children}
+        </div>
       </div>
-
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto pt-16">
-        <main className="p-4 lg:p-6">{children}</main>
-      </div>
-
-      {/* Overlay for mobile */}
-      {sidebarOpen && (
-        <div
-          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-20"
-          onClick={toggleSidebar}
-        />
-      )}
     </div>
   );
 };

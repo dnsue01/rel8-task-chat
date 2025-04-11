@@ -8,7 +8,9 @@ import Index from "./pages/Index";
 import CrmApp from "./pages/CrmApp";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import IntegrationsPage from "./pages/IntegrationsPage";
 import { CrmProvider, useCrm } from "./context/CrmContext";
+import { IntegrationsProvider } from "./context/IntegrationsContext";
 
 // Protected route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -27,24 +29,31 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <CrmProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route 
-              path="/app" 
-              element={
+        <IntegrationsProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route 
+                path="/app" 
+                element={
+                  <ProtectedRoute>
+                    <CrmApp />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route path="/integrations" element={
                 <ProtectedRoute>
-                  <CrmApp />
+                  <IntegrationsPage />
                 </ProtectedRoute>
-              } 
-            />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
+              } />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </IntegrationsProvider>
       </CrmProvider>
     </TooltipProvider>
   </QueryClientProvider>
