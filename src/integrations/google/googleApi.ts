@@ -1,3 +1,4 @@
+
 import { supabase } from "../supabase/client";
 import { getGoogleAccessToken } from "./googleAuth";
 import { CalendarEvent, Email, Task, TaskList, Contact } from "@/types/integrations";
@@ -402,6 +403,53 @@ export const fetchClassifiedCalendarEvents = async (contacts: any[] = []): Promi
     return data.events || [];
   } catch (error) {
     console.error("Error in fetchClassifiedCalendarEvents:", error);
+    throw error;
+  }
+};
+
+/**
+ * Function to fetch and process integrated calendar data
+ * This function fetches calendar events, Google contacts, and links them with CRM contacts
+ * @param crmContacts - Array of contacts from the CRM system
+ * @returns Promise with integrated calendar data including events and Google contacts
+ */
+export const fetchIntegratedCalendarData = async (crmContacts: any[] = []): Promise<any> => {
+  try {
+    const accessToken = getGoogleAccessToken();
+    if (!accessToken) {
+      throw new Error("No Google access token available");
+    }
+
+    // Call our Supabase Edge Function with the access token, endpoint and CRM contacts
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-oauth`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({
+          access_token: accessToken,
+          endpoint: "integrated_calendar",
+          crm_contacts: crmContacts
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Error fetching integrated calendar data:", errorData);
+      throw new Error(`Error fetching integrated calendar data: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return {
+      events: data.eventos || [],
+      googleContacts: data.contactos_google || []
+    };
+  } catch (error) {
+    console.error("Error in fetchIntegratedCalendarData:", error);
     throw error;
   }
 };

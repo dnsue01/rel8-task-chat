@@ -3,7 +3,7 @@ import { CalendarEvent, Email, GoogleAuthConfig, IntegrationSyncState, MatchResu
 import { useCrm } from "./CrmContext";
 import { googleClient } from "../integrations/google/googleClient";
 import { parseISO } from "date-fns";
-import { fetchCalendarEvents, fetchContacts, fetchEmails, fetchTaskLists, fetchTasks, fetchClassifiedCalendarEvents } from "../integrations/google/googleApi";
+import { fetchCalendarEvents, fetchContacts, fetchEmails, fetchTaskLists, fetchTasks, fetchClassifiedCalendarEvents, fetchIntegratedCalendarData } from "../integrations/google/googleApi";
 
 interface IntegrationsContextType {
   // Google
@@ -40,9 +40,12 @@ interface IntegrationsContextType {
   // Sync state
   syncState: IntegrationSyncState;
   
-  // Classified calendar functionality
+  // Classified and integrated calendar functionality
   classifiedEvents: any[];
+  integratedEvents: any[];
+  googleContactsFromCalendar: any[];
   fetchClassifiedEvents: () => Promise<void>;
+  fetchIntegratedEvents: () => Promise<void>;
 }
 
 const IntegrationsContext = createContext<IntegrationsContextType>({} as IntegrationsContextType);
@@ -57,6 +60,8 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [taskLists, setTaskLists] = useState<TaskList[]>([]);
   const [syncState, setSyncState] = useState<IntegrationSyncState>({});
   const [classifiedEvents, setClassifiedEvents] = useState<any[]>([]);
+  const [integratedEvents, setIntegratedEvents] = useState<any[]>([]);
+  const [googleContactsFromCalendar, setGoogleContactsFromCalendar] = useState<any[]>([]);
   
   const { notes } = useCrm();
   
@@ -417,6 +422,25 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       throw error;
     }
   };
+
+  const fetchIntegratedEvents = async (): Promise<void> => {
+    try {
+      const { events, googleContacts } = await fetchIntegratedCalendarData(contacts);
+      
+      setIntegratedEvents(events);
+      setGoogleContactsFromCalendar(googleContacts);
+      
+      localStorage.setItem('google_integrated_events', JSON.stringify(events));
+      localStorage.setItem('google_calendar_contacts', JSON.stringify(googleContacts));
+      
+      const newSyncState = { ...syncState, lastCalendarSync: new Date() };
+      setSyncState(newSyncState);
+      localStorage.setItem('integration_sync_state', JSON.stringify(newSyncState));
+    } catch (error) {
+      console.error('Error syncing integrated calendar events:', error);
+      throw error;
+    }
+  };
   
   return (
     <IntegrationsContext.Provider value={{
@@ -441,7 +465,10 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       findMatchesForEmail,
       syncState,
       classifiedEvents,
+      integratedEvents,
+      googleContactsFromCalendar,
       fetchClassifiedEvents,
+      fetchIntegratedEvents,
     }}>
       {children}
     </IntegrationsContext.Provider>

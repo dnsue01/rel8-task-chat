@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +9,8 @@ import { Calendar, Mail, AlertCircle, CheckCircle, RefreshCw, ExternalLink, Chec
 import { googleClient } from '../../integrations/google/googleClient';
 import { useIntegrations } from '../../context/IntegrationsContext';
 import GoogleClassifiedCalendar from './GoogleClassifiedCalendar';
+import GoogleIntegratedCalendar from './GoogleIntegratedCalendar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const GoogleIntegration: React.FC = () => {
   const { 
@@ -27,6 +30,7 @@ const GoogleIntegration: React.FC = () => {
   const [isSyncingContacts, setIsSyncingContacts] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [activeCalendarTab, setActiveCalendarTab] = useState<string>("integrated");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -171,26 +175,8 @@ const GoogleIntegration: React.FC = () => {
     }
   };
 
-  const handleSyncClassifiedEvents = async () => {
-    setIsSyncingCalendar(true);
-    try {
-      await syncCalendarEvents();
-      setShowCalendar(true);
-      toast({
-        title: "Sincronización completada",
-        description: "Tus eventos de calendario han sido sincronizados y clasificados",
-      });
-    } catch (error) {
-      console.error('Error syncing calendar:', error);
-      const errorMessage = error instanceof Error ? error.message : "Error desconocido";
-      toast({
-        variant: "destructive",
-        title: "Error de sincronización",
-        description: `No se pudieron sincronizar tus eventos de calendario: ${errorMessage}`,
-      });
-    } finally {
-      setIsSyncingCalendar(false);
-    }
+  const handleShowCalendar = () => {
+    setShowCalendar(true);
   };
 
   return (
@@ -352,26 +338,40 @@ const GoogleIntegration: React.FC = () => {
       {isGoogleConnected && (
         <>
           {showCalendar ? (
-            <GoogleClassifiedCalendar />
+            <Card>
+              <CardHeader>
+                <CardTitle>Google Calendar</CardTitle>
+                <CardDescription>
+                  Visualiza tus eventos de Google Calendar integrados con tus contactos
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Tabs value={activeCalendarTab} onValueChange={setActiveCalendarTab} className="w-full">
+                  <TabsList className="grid grid-cols-2 w-full mb-4">
+                    <TabsTrigger value="integrated">Calendario Integrado</TabsTrigger>
+                    <TabsTrigger value="classified">Calendario Clasificado</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="integrated">
+                    <GoogleIntegratedCalendar />
+                  </TabsContent>
+                  
+                  <TabsContent value="classified">
+                    <GoogleClassifiedCalendar />
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
           ) : (
             <Card className="w-full p-6 flex flex-col items-center justify-center">
               <Calendar className="h-12 w-12 text-blue-500 mb-4" />
-              <h3 className="text-lg font-medium mb-2">Calendario Clasificado</h3>
+              <h3 className="text-lg font-medium mb-2">Calendario Google</h3>
               <p className="text-center text-gray-500 mb-4 max-w-md">
-                Visualiza tus eventos clasificados como Eventos, Tareas o Citas, y vinculados automáticamente con tus contactos
+                Visualiza tus eventos de Google Calendar integrados con tus contactos del CRM
               </p>
-              <Button onClick={handleSyncClassifiedEvents} disabled={isSyncingCalendar}>
-                {isSyncingCalendar ? (
-                  <>
-                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                    Sincronizando...
-                  </>
-                ) : (
-                  <>
-                    <Calendar className="mr-2 h-4 w-4" />
-                    Mostrar Calendario Clasificado
-                  </>
-                )}
+              <Button onClick={handleShowCalendar}>
+                <Calendar className="mr-2 h-4 w-4" />
+                Mostrar Calendario de Google
               </Button>
             </Card>
           )}
