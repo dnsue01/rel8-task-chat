@@ -27,6 +27,7 @@ export interface Task {
   completed?: boolean;
   status: "needsAction" | "completed";
   linkedNoteId?: string;
+  listId?: string;
 }
 
 export interface TaskList {

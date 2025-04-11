@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import Layout from "../components/layout/Layout";
 import { useIntegrations } from "../context/IntegrationsContext";
@@ -5,10 +6,10 @@ import { useCrm } from "../context/CrmContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, Mail, RefreshCw, Link2, AlertTriangle, ExternalLink, Globe, ChevronRight, Info } from "lucide-react";
+import { Calendar, Mail, CheckSquare, RefreshCw, Link2, ExternalLink, Globe, ChevronRight, Info } from "lucide-react";
 import { formatDistanceToNow, format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
-import { CalendarEvent, Email, MatchResult } from "../types/integrations";
+import { CalendarEvent, Email, MatchResult, Task } from "../types/integrations";
 import { Note } from "../types/index";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -22,14 +23,18 @@ const IntegrationsPage: React.FC = () => {
     connectGoogleCalendar, 
     disconnectGoogleCalendar,
     calendarEvents,
-    emails, 
+    emails,
+    tasks,
+    taskLists, 
     syncState,
     syncCalendarEvents,
     syncEmails,
+    syncTasks,
     getEventsForDate,
     getEmailsForDate,
     linkNoteToEvent,
     linkEmailToNote,
+    linkNoteToTask,
     findMatchesForNote,
     findMatchesForEmail
   } = useIntegrations();
@@ -40,18 +45,34 @@ const IntegrationsPage: React.FC = () => {
   const [selectedTab, setSelectedTab] = useState<string>("calendar");
   const [syncingCalendar, setSyncingCalendar] = useState<boolean>(false);
   const [syncingEmail, setSyncingEmail] = useState<boolean>(false);
+  const [syncingTasks, setSyncingTasks] = useState<boolean>(false);
   const [connecting, setConnecting] = useState<boolean>(false);
 
   const handleSyncCalendar = async () => {
     setSyncingCalendar(true);
-    await syncCalendarEvents();
-    setSyncingCalendar(false);
+    try {
+      await syncCalendarEvents();
+    } finally {
+      setSyncingCalendar(false);
+    }
   };
 
   const handleSyncEmail = async () => {
     setSyncingEmail(true);
-    await syncEmails();
-    setSyncingEmail(false);
+    try {
+      await syncEmails();
+    } finally {
+      setSyncingEmail(false);
+    }
+  };
+
+  const handleSyncTasks = async () => {
+    setSyncingTasks(true);
+    try {
+      await syncTasks();
+    } finally {
+      setSyncingTasks(false);
+    }
   };
 
   const handleConnect = async () => {
@@ -65,32 +86,19 @@ const IntegrationsPage: React.FC = () => {
   
   const eventsForSelectedDate = getEventsForDate(selectedDate);
   const emailsForSelectedDate = getEmailsForDate(selectedDate);
+  const tasksForSelectedDate = tasks.filter(task => {
+    if (!task.due) return false;
+    const taskDate = new Date(task.due);
+    return taskDate.getDate() === selectedDate.getDate() &&
+           taskDate.getMonth() === selectedDate.getMonth() &&
+           taskDate.getFullYear() === selectedDate.getFullYear();
+  });
   
   return (
     <Layout>
       <div className="container py-8">
         <h1 className="text-3xl font-bold mb-2">Integraciones</h1>
         <p className="text-gray-500 mb-6">Conecta tus servicios de Google para sincronizar tu información</p>
-        
-        {/* Integration Status Alert */}
-        <Alert className="mb-6 bg-blue-50 border-blue-200">
-          <Info className="h-4 w-4 text-blue-500" />
-          <AlertTitle>Estado de la integración</AlertTitle>
-          <AlertDescription>
-            <p className="mb-2">
-              Esta es una <strong>demostración simulada</strong> de la integración con Google. En una aplicación de producción:
-            </p>
-            <ul className="list-disc list-inside space-y-1 mb-2">
-              <li>La aplicación utilizaría la API de Google a través de Supabase Edge Functions</li>
-              <li>El proceso de OAuth de Google sería manejado de forma segura</li>
-              <li>Tus datos se sincronizarían en tiempo real desde tu cuenta real</li>
-            </ul>
-            <p>
-              Para implementar esta funcionalidad completamente, necesitarías configurar claves de API de Google
-              en Supabase y crear Edge Functions seguras para la comunicación con las APIs de Google.
-            </p>
-          </AlertDescription>
-        </Alert>
         
         {/* Connection Status Card */}
         <Card className="mb-8 overflow-hidden border-t-4 border-t-primary">
@@ -104,7 +112,7 @@ const IntegrationsPage: React.FC = () => {
               )}
             </CardTitle>
             <CardDescription>
-              Conecta tu cuenta de Google para sincronizar tu calendario y correos
+              Conecta tu cuenta de Google para sincronizar tu calendario, tareas y correos
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -140,6 +148,44 @@ const IntegrationsPage: React.FC = () => {
               )}
               {connecting && (
                 <Button variant="default" disabled className="bg-blue-600">
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> 
+                  Conectando...
+                </Button>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between p-4 border rounded-lg mb-4 bg-white hover:bg-slate-50 transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                  <CheckSquare className="h-6 w-6 text-green-500" />
+                </div>
+                <div>
+                  <h3 className="font-medium">Google Tasks</h3>
+                  <p className="text-sm text-gray-500">
+                    {isGoogleConnected 
+                      ? `Conectado ${syncState.lastTasksSync 
+                          ? '· Sincronizado ' + formatDistanceToNow(
+                              typeof syncState.lastTasksSync === 'string' 
+                                ? parseISO(syncState.lastTasksSync) 
+                                : syncState.lastTasksSync, 
+                              { addSuffix: true, locale: es }
+                            )
+                          : '· Nunca sincronizado'}`
+                      : 'No conectado'}
+                  </p>
+                </div>
+              </div>
+              {!connecting && (
+                <Button 
+                  variant={isGoogleConnected ? "outline" : "default"}
+                  onClick={isGoogleConnected ? disconnectGoogleCalendar : handleConnect}
+                  className={isGoogleConnected ? "" : "bg-green-600 hover:bg-green-700"}
+                >
+                  {isGoogleConnected ? 'Desconectar' : 'Conectar'}
+                </Button>
+              )}
+              {connecting && (
+                <Button variant="default" disabled className="bg-green-600">
                   <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> 
                   Conectando...
                 </Button>
@@ -189,11 +235,12 @@ const IntegrationsPage: React.FC = () => {
               <div className="text-sm text-gray-500">
                 <span className="block sm:inline mr-4">
                   Última sincronización completa: {
-                    syncState.lastCalendarSync && syncState.lastEmailSync
+                    syncState.lastCalendarSync && syncState.lastEmailSync && syncState.lastTasksSync
                       ? formatDistanceToNow(
                           new Date(Math.min(
                             new Date(syncState.lastCalendarSync).getTime(),
-                            new Date(syncState.lastEmailSync).getTime()
+                            new Date(syncState.lastEmailSync).getTime(),
+                            new Date(syncState.lastTasksSync || 0).getTime()
                           )),
                           { addSuffix: true, locale: es }
                         )
@@ -201,7 +248,7 @@ const IntegrationsPage: React.FC = () => {
                   }
                 </span>
               </div>
-              <div className="flex gap-2 w-full sm:w-auto">
+              <div className="flex gap-2 w-full sm:w-auto flex-wrap">
                 <Button 
                   variant="outline" 
                   className="flex-1 sm:flex-none" 
@@ -210,6 +257,15 @@ const IntegrationsPage: React.FC = () => {
                 >
                   <RefreshCw className={`mr-2 h-4 w-4 ${syncingCalendar ? 'animate-spin' : ''}`} /> 
                   Sincronizar Calendario
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="flex-1 sm:flex-none" 
+                  onClick={handleSyncTasks}
+                  disabled={!isGoogleConnected || syncingTasks}
+                >
+                  <RefreshCw className={`mr-2 h-4 w-4 ${syncingTasks ? 'animate-spin' : ''}`} /> 
+                  Sincronizar Tareas
                 </Button>
                 <Button 
                   variant="outline" 
@@ -226,46 +282,63 @@ const IntegrationsPage: React.FC = () => {
         </Card>
         
         {!isGoogleConnected && (
-          <Alert className="mb-8 bg-amber-50 border-amber-200">
-            <AlertTriangle className="h-4 w-4 text-amber-500" />
-            <AlertTitle>Conecta tu cuenta de Google</AlertTitle>
-            <AlertDescription>
-              <p className="mb-4">
-                Para utilizar la sincronización de calendario y correos, debes conectar tu cuenta de Google. 
-                Al conectar tu cuenta, podrás:
-              </p>
-              <ul className="list-disc list-inside space-y-1 mb-4">
-                <li>Ver tus eventos de calendario directamente en la aplicación</li>
-                <li>Vincular correos electrónicos con tus contactos y notas</li>
-                <li>Recibir notificaciones de eventos importantes</li>
-                <li>Mantener sincronizada toda tu información</li>
-              </ul>
-              <p className="mb-4">
-                <strong>Nota:</strong> Esta es una demostración y por el momento usa datos simulados. 
-                En una versión real, la aplicación:
-              </p>
-              <ul className="list-disc list-inside space-y-1 mb-4">
-                <li>Te redirigiría al flujo de autenticación de Google</li>
-                <li>Utilizaría Supabase Edge Functions para manejar la comunicación segura con las APIs</li>
-                <li>Almacenaría de forma segura los tokens de acceso en tu base de datos Supabase</li>
-              </ul>
-              <Button 
-                onClick={handleConnect} 
-                className="mt-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                disabled={connecting}
-              >
-                {!connecting ? (
-                  <>
-                    <Globe className="mr-2 h-4 w-4" /> Conectar con Google (Simulación)
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Conectando...
-                  </>
-                )}
-              </Button>
-            </AlertDescription>
-          </Alert>
+          <Card className="mb-8 bg-white border shadow-sm overflow-hidden">
+            <div className="md:flex">
+              <div className="md:w-1/2 p-6">
+                <h2 className="text-xl font-bold mb-3">¿Por qué conectar Google?</h2>
+                <ul className="space-y-3">
+                  <li className="flex items-start">
+                    <ChevronRight className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
+                    <span>Sincroniza tu <strong>calendario</strong> y mantén tus eventos organizados</span>
+                  </li>
+                  <li className="flex items-start">
+                    <ChevronRight className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
+                    <span>Gestiona tus <strong>tareas</strong> desde una única interfaz</span>
+                  </li>
+                  <li className="flex items-start">
+                    <ChevronRight className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
+                    <span>Vincula tus <strong>correos</strong> con contactos para un seguimiento eficiente</span>
+                  </li>
+                  <li className="flex items-start">
+                    <ChevronRight className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
+                    <span>Automatiza el <strong>registro de interacciones</strong> con tus contactos</span>
+                  </li>
+                </ul>
+                
+                <Button 
+                  onClick={handleConnect} 
+                  className="mt-6 gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                  disabled={connecting}
+                >
+                  {!connecting ? (
+                    <>
+                      <Globe className="h-4 w-4" /> Conectar con Google
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" /> Conectando...
+                    </>
+                  )}
+                </Button>
+              </div>
+              
+              <div className="md:w-1/2 bg-gradient-to-br from-purple-50 to-blue-50 p-6 flex items-center justify-center">
+                <div className="max-w-xs text-center">
+                  <div className="mx-auto w-32 h-32 bg-white rounded-full shadow-md flex items-center justify-center mb-4">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-8 w-8 text-blue-500" />
+                      <CheckSquare className="h-7 w-7 text-green-500" />
+                      <Mail className="h-8 w-8 text-red-500" />
+                    </div>
+                  </div>
+                  <h3 className="text-lg font-medium mb-2">Integración completa</h3>
+                  <p className="text-sm text-gray-600">
+                    Conéctate una vez y mantén toda tu información sincronizada automáticamente.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </Card>
         )}
         
         {isGoogleConnected ? (
@@ -273,6 +346,9 @@ const IntegrationsPage: React.FC = () => {
             <TabsList className="mb-6">
               <TabsTrigger value="calendar" className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" /> Calendario
+              </TabsTrigger>
+              <TabsTrigger value="tasks" className="flex items-center gap-2">
+                <CheckSquare className="h-4 w-4" /> Tareas
               </TabsTrigger>
               <TabsTrigger value="email" className="flex items-center gap-2">
                 <Mail className="h-4 w-4" /> Correo
@@ -341,6 +417,102 @@ const IntegrationsPage: React.FC = () => {
                                 matches={findMatchesForNote(note.id)}
                                 calendarEvents={calendarEvents}
                               />
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="tasks" className="space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <Card className="lg:col-span-2">
+                  <CardHeader className="pb-3">
+                    <CardTitle>Tareas</CardTitle>
+                    <CardDescription>
+                      Tus tareas pendientes de Google Tasks
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {tasks.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <CheckSquare className="mx-auto h-12 w-12 opacity-20 mb-2" />
+                        <p>No hay tareas disponibles</p>
+                        <Button 
+                          variant="link" 
+                          onClick={handleSyncTasks}
+                          disabled={syncingTasks}
+                          className="mt-2"
+                        >
+                          <RefreshCw className={`mr-2 h-3 w-3 ${syncingTasks ? 'animate-spin' : ''}`} />
+                          Sincronizar tareas
+                        </Button>
+                      </div>
+                    ) : (
+                      <ScrollArea className="h-[450px] pr-4">
+                        <div className="space-y-4">
+                          {taskLists.map(taskList => (
+                            <div key={taskList.id} className="mb-6">
+                              <h3 className="text-lg font-medium mb-3 border-b pb-1">{taskList.title}</h3>
+                              <div className="space-y-3">
+                                {tasks
+                                  .filter(task => task.listId === taskList.id)
+                                  .map(task => (
+                                    <TaskCard 
+                                      key={task.id} 
+                                      task={task} 
+                                      notes={notes}
+                                      onLinkNote={(noteId) => linkNoteToTask(noteId, task.id)}
+                                    />
+                                  ))
+                                }
+                                {tasks.filter(task => task.listId === taskList.id).length === 0 && (
+                                  <div className="text-center py-3 text-gray-500 text-sm">
+                                    No hay tareas en esta lista
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                          {taskLists.length === 0 && (
+                            <div className="text-center py-3 text-gray-500">
+                              No hay listas de tareas disponibles
+                            </div>
+                          )}
+                        </div>
+                      </ScrollArea>
+                    )}
+                  </CardContent>
+                </Card>
+                
+                <div className="space-y-6">
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base">Tareas para hoy</CardTitle>
+                      <CardDescription>
+                        {format(selectedDate, 'd MMMM, yyyy', { locale: es })}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {tasksForSelectedDate.length === 0 ? (
+                        <p className="text-gray-500 text-center py-4">No hay tareas para hoy</p>
+                      ) : (
+                        <ScrollArea className="h-[300px] pr-2">
+                          <div className="space-y-3">
+                            {tasksForSelectedDate.map(task => (
+                              <div key={task.id} className="border rounded-lg p-3">
+                                <p className={`font-medium ${task.completed ? 'line-through text-gray-400' : ''}`}>{task.title}</p>
+                                {task.notes && <p className="text-sm text-gray-500 mt-1">{task.notes}</p>}
+                                <Badge 
+                                  variant={task.completed ? "outline" : "secondary"} 
+                                  className="mt-2"
+                                >
+                                  {task.completed ? 'Completada' : 'Pendiente'}
+                                </Badge>
+                              </div>
                             ))}
                           </div>
                         </ScrollArea>
@@ -428,69 +600,7 @@ const IntegrationsPage: React.FC = () => {
               </div>
             </TabsContent>
           </Tabs>
-        ) : (
-          <Card className="bg-white border shadow-sm overflow-hidden">
-            <div className="md:flex">
-              <div className="md:w-1/2 p-6">
-                <h2 className="text-xl font-bold mb-3">¿Por qué conectar Google?</h2>
-                <ul className="space-y-3">
-                  <li className="flex items-start">
-                    <ChevronRight className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
-                    <span>Sincroniza tu <strong>calendario</strong> y mantén tus eventos organizados</span>
-                  </li>
-                  <li className="flex items-start">
-                    <ChevronRight className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
-                    <span>Vincula tus <strong>correos</strong> con contactos para un seguimiento eficiente</span>
-                  </li>
-                  <li className="flex items-start">
-                    <ChevronRight className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
-                    <span>Automatiza el <strong>registro de interacciones</strong> con tus contactos</span>
-                  </li>
-                  <li className="flex items-start">
-                    <ChevronRight className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
-                    <span>Recibe <strong>notificaciones</strong> de eventos importantes</span>
-                  </li>
-                </ul>
-                
-                <Button 
-                  onClick={handleConnect} 
-                  className="mt-6 gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                  disabled={connecting}
-                >
-                  {!connecting ? (
-                    <>
-                      <Globe className="h-4 w-4" /> Conectar con Google
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="h-4 w-4 animate-spin" /> Conectando...
-                    </>
-                  )}
-                </Button>
-                
-                <p className="mt-4 text-xs text-gray-500">
-                  <strong>Nota:</strong> Esta es una demostración y por el momento usa datos simulados. 
-                  En una versión real, te redirigiría al flujo de autenticación de Google.
-                </p>
-              </div>
-              
-              <div className="md:w-1/2 bg-gradient-to-br from-purple-50 to-blue-50 p-6 flex items-center justify-center">
-                <div className="max-w-xs text-center">
-                  <div className="mx-auto w-32 h-32 bg-white rounded-full shadow-md flex items-center justify-center mb-4">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-8 w-8 text-blue-500" />
-                      <Mail className="h-8 w-8 text-red-500" />
-                    </div>
-                  </div>
-                  <h3 className="text-lg font-medium mb-2">Integración simplificada</h3>
-                  <p className="text-sm text-gray-600">
-                    Conéctate una vez y mantén toda tu información sincronizada automáticamente.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </Card>
-        )}
+        ) : null}
       </div>
     </Layout>
   );
@@ -524,6 +634,82 @@ const EventCard: React.FC<EventCardProps> = ({ event, notes, onLinkNote }) => {
         {event.attendees?.map((attendee, i) => (
           <Badge key={i} variant="outline" className="text-xs">{attendee}</Badge>
         ))}
+      </div>
+      
+      <div className="mt-4 pt-3 border-t">
+        {linkedNote ? (
+          <div className="bg-gray-50 p-3 rounded text-sm">
+            <div className="flex justify-between">
+              <p className="font-medium text-xs text-gray-500 mb-1">Nota vinculada</p>
+            </div>
+            <p className="text-gray-700">{linkedNote.content}</p>
+          </div>
+        ) : (
+          <div className="flex justify-between items-center">
+            <p className="text-sm text-gray-500">No hay nota vinculada</p>
+            
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="sm" className="flex items-center gap-1">
+                  <Link2 className="h-3.5 w-3.5" />
+                  <span>Vincular nota</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="p-0" align="end">
+                <Command>
+                  <CommandList>
+                    <CommandEmpty>No hay notas disponibles</CommandEmpty>
+                    <CommandGroup>
+                      {notes.map((note) => (
+                        <CommandItem 
+                          key={note.id}
+                          onSelect={() => onLinkNote(note.id)}
+                          className="cursor-pointer"
+                        >
+                          <span className="truncate">{note.content}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+interface TaskCardProps {
+  task: Task;
+  notes: Note[];
+  onLinkNote: (noteId: string) => void;
+}
+
+const TaskCard: React.FC<TaskCardProps> = ({ task, notes, onLinkNote }) => {
+  const linkedNote = notes.find(n => n.id === task.linkedNoteId);
+  
+  return (
+    <div className="border rounded-lg p-4">
+      <div className="flex justify-between items-start">
+        <div>
+          <h3 className={`font-medium ${task.completed ? 'line-through text-gray-400' : ''}`}>{task.title}</h3>
+          {task.notes && <p className="text-sm text-gray-500 mt-1">{task.notes}</p>}
+        </div>
+        <div className="text-right">
+          {task.due && (
+            <p className="text-xs text-gray-500">
+              Vence: {format(new Date(task.due), 'd MMM, yyyy', { locale: es })}
+            </p>
+          )}
+          <Badge 
+            variant={task.completed ? "outline" : "secondary"} 
+            className="mt-1"
+          >
+            {task.completed ? 'Completada' : 'Pendiente'}
+          </Badge>
+        </div>
       </div>
       
       <div className="mt-4 pt-3 border-t">
