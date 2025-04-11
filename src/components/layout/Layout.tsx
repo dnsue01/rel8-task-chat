@@ -1,10 +1,10 @@
+
 import React, { useState } from "react";
 import { Menu, X, LogOut } from "lucide-react";
 import { useCrm } from "../../context/CrmContext";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import ContactSidebar from "@/components/sidebar/ContactSidebar";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -59,15 +59,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </Button>
           </div>
         )}
-      </div>
-
-      {/* Sidebar */}
-      <div
-        className={`${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } fixed lg:relative lg:translate-x-0 z-30 transition-transform duration-300 ease-in-out h-full`}
-      >
-        <ContactSidebar />
       </div>
 
       {/* Main Content */}

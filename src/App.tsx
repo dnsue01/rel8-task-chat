@@ -8,7 +8,7 @@ import Index from "./pages/Index";
 import CrmApp from "./pages/CrmApp";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
-import { useCrm } from "./context/CrmContext";
+import { CrmProvider, useCrm } from "./context/CrmContext";
 
 // Protected route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -26,24 +26,26 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route 
-            path="/app" 
-            element={
-              <ProtectedRoute>
-                <CrmApp />
-              </ProtectedRoute>
-            } 
-          />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <CrmProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route 
+              path="/app" 
+              element={
+                <ProtectedRoute>
+                  <CrmApp />
+                </ProtectedRoute>
+              } 
+            />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </CrmProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
