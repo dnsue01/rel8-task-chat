@@ -15,7 +15,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { access_token, endpoint } = body;
+    const { access_token, endpoint, message_id } = body;
 
     if (!access_token) {
       return new Response(
@@ -25,17 +25,36 @@ serve(async (req) => {
     }
 
     let url = "";
+    
     // Determine which Google API to call based on the endpoint parameter
     switch (endpoint) {
       case "calendar":
-        url = "https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=10&timeMin=" + 
-              new Date().toISOString();
+        // Get calendar events for the next 30 days
+        const today = new Date();
+        const thirtyDaysLater = new Date(today);
+        thirtyDaysLater.setDate(today.getDate() + 30);
+        
+        url = "https://www.googleapis.com/calendar/v3/calendars/primary/events" + 
+              "?maxResults=20" +
+              "&timeMin=" + encodeURIComponent(today.toISOString()) + 
+              "&timeMax=" + encodeURIComponent(thirtyDaysLater.toISOString()) +
+              "&singleEvents=true" +
+              "&orderBy=startTime";
         break;
       case "tasks":
         url = "https://tasks.googleapis.com/tasks/v1/users/@me/lists";
         break;
       case "gmail":
         url = "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=10";
+        break;
+      case "gmail/message":
+        if (!message_id) {
+          return new Response(
+            JSON.stringify({ error: "Message ID is required for gmail/message endpoint" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        url = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message_id}`;
         break;
       default:
         return new Response(
@@ -63,7 +82,8 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           error: "Error fetching data from Google API", 
-          details: data 
+          details: data,
+          url: url // Include the URL for debugging
         }),
         { 
           status: response.status, 

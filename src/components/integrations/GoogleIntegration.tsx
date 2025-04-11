@@ -11,16 +11,15 @@ import { useIntegrations } from '../../context/IntegrationsContext';
 import { supabase } from "@/integrations/supabase/client";
 
 const GoogleIntegration: React.FC = () => {
-  const { isGoogleConnected, connectGoogleCalendar, disconnectGoogleCalendar, syncCalendarEvents, syncState } = useIntegrations();
+  const { isGoogleConnected, connectGoogleCalendar, disconnectGoogleCalendar, syncCalendarEvents, syncEmails, syncState } = useIntegrations();
   const [isLoading, setIsLoading] = useState(false);
-  const [isEdgeFunctionTesting, setIsEdgeFunctionTesting] = useState(false);
+  const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
+  const [isSyncingEmails, setIsSyncingEmails] = useState(false);
   const { toast } = useToast();
 
   const handleConnect = async () => {
     setIsLoading(true);
     try {
-      // In our mock system this will just return a simulated success response
-      // In the real implementation this would redirect to Google OAuth
       await connectGoogleCalendar();
       toast({
         title: "Conectado con éxito",
@@ -57,35 +56,63 @@ const GoogleIntegration: React.FC = () => {
     }
   };
 
-  const handleSync = async () => {
-    setIsLoading(true);
+  const handleSyncCalendar = async () => {
+    setIsSyncingCalendar(true);
     try {
       await syncCalendarEvents();
       toast({
         title: "Sincronización completada",
-        description: "Tus eventos han sido sincronizados con éxito",
+        description: "Tus eventos de calendario han sido sincronizados con éxito",
       });
     } catch (error) {
+      console.error('Error syncing calendar:', error);
       toast({
         variant: "destructive",
         title: "Error de sincronización",
-        description: "No se pudieron sincronizar tus eventos",
+        description: "No se pudieron sincronizar tus eventos de calendario",
       });
     } finally {
-      setIsLoading(false);
+      setIsSyncingCalendar(false);
+    }
+  };
+
+  const handleSyncEmails = async () => {
+    setIsSyncingEmails(true);
+    try {
+      await syncEmails();
+      toast({
+        title: "Sincronización completada",
+        description: "Tus correos han sido sincronizados con éxito",
+      });
+    } catch (error) {
+      console.error('Error syncing emails:', error);
+      toast({
+        variant: "destructive",
+        title: "Error de sincronización",
+        description: "No se pudieron sincronizar tus correos",
+      });
+    } finally {
+      setIsSyncingEmails(false);
     }
   };
 
   const testEdgeFunction = async () => {
-    setIsEdgeFunctionTesting(true);
     try {
       // For demonstration purposes; in a real app you'd use the actual access token from auth
-      const mockToken = "mock-access-token";
+      const accessToken = localStorage.getItem('google_auth_token');
+      if (!accessToken) {
+        toast({
+          variant: "destructive",
+          title: "No se encontró token de acceso",
+          description: "Debes conectar tu cuenta de Google primero",
+        });
+        return;
+      }
       
-      // Call the edge function
+      // Call the edge function for calendar
       const { data, error } = await supabase.functions.invoke('google-oauth', {
         body: { 
-          access_token: mockToken,
+          access_token: accessToken,
           endpoint: "calendar" 
         }
       });
@@ -102,11 +129,9 @@ const GoogleIntegration: React.FC = () => {
 
       console.log("Edge function response:", data);
       
-      // Since we're using a mock token, we'll likely get an auth error from Google
-      // But this shows the function is working
       toast({
         title: "Edge Function ejecutada",
-        description: "La función de Edge ha sido llamada correctamente. Revisa la consola para ver la respuesta.",
+        description: `La función de Edge ha devuelto ${data.items?.length || 0} eventos. Revisa la consola para detalles.`,
       });
     } catch (error) {
       console.error('Error calling edge function:', error);
@@ -115,8 +140,6 @@ const GoogleIntegration: React.FC = () => {
         title: "Error",
         description: "Error al llamar a la función Edge",
       });
-    } finally {
-      setIsEdgeFunctionTesting(false);
     }
   };
 
@@ -136,32 +159,18 @@ const GoogleIntegration: React.FC = () => {
         </div>
       </CardHeader>
       <CardContent>
-        <Alert>
+        <Alert className="mb-4">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Estado de la integración</AlertTitle>
           <AlertDescription>
             <p className="mb-2">
-              Esta es una <strong>demostración simulada</strong> de la integración con Google.
+              Esta integración utiliza las APIs de Google a través de Supabase Edge Functions para mantener la seguridad de tus credenciales.
             </p>
-            <p>Para una implementación real:</p>
+            <p>Para una funcionalidad completa:</p>
             <ul className="list-disc list-inside mt-2 space-y-1">
-              <li>Usa la API de Google Calendar y Tasks vía Supabase Edge Functions</li>
-              <li>Maneja OAuth de forma segura</li>
-              <li>Sincroniza tus datos en tiempo real</li>
+              <li>Asegúrate de tener los permisos de Calendar y Gmail activados</li>
+              <li>Si encuentras problemas, revisa la consola para más detalles</li>
             </ul>
-            <p className="mt-2">
-              Para configurar completamente, necesitas:
-            </p>
-            <ol className="list-decimal list-inside mt-1 space-y-1">
-              <li>Crear un proyecto en 
-                <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline ml-1">
-                  Google Cloud Console
-                </a>
-              </li>
-              <li>Activar las APIs necesarias (Calendar, Tasks, Gmail)</li>
-              <li>Configurar las credenciales OAuth 2.0</li>
-              <li>Configurar los dominios autorizados y URLs de redirección</li>
-            </ol>
           </AlertDescription>
         </Alert>
 
@@ -202,19 +211,10 @@ const GoogleIntegration: React.FC = () => {
             variant="outline" 
             size="sm"
             onClick={testEdgeFunction}
-            disabled={isEdgeFunctionTesting}
+            disabled={!isGoogleConnected}
             className="w-full"
           >
-            {isEdgeFunctionTesting ? (
-              <>
-                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                Probando Edge Function...
-              </>
-            ) : (
-              <>
-                Probar Edge Function
-              </>
-            )}
+            Probar Edge Function
           </Button>
         </div>
       </CardContent>
@@ -223,11 +223,19 @@ const GoogleIntegration: React.FC = () => {
           <>
             <Button 
               variant="outline" 
-              onClick={handleSync} 
-              disabled={isLoading}
+              onClick={handleSyncCalendar} 
+              disabled={isSyncingCalendar}
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
-              Sincronizar
+              <RefreshCw className={`h-4 w-4 mr-2 ${isSyncingCalendar ? "animate-spin" : ""}`} />
+              Sincronizar Calendario
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={handleSyncEmails}
+              disabled={isSyncingEmails}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isSyncingEmails ? "animate-spin" : ""}`} />
+              Sincronizar Correos
             </Button>
             <Button 
               variant="destructive" 
