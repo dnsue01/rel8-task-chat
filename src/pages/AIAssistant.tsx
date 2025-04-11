@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import Layout from "../components/layout/Layout";
 import { Button } from "@/components/ui/button";
@@ -5,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MessageSquare, Sparkles, Send, Loader2, User, Info } from "lucide-react";
+import { MessageSquare, Sparkles, Send, Loader2, User } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useCrm } from "../context/CrmContext";
 import { useIntegrations } from "../context/IntegrationsContext";
@@ -210,16 +211,6 @@ const AIAssistant = () => {
           </Card>
         ) : (
           <div className="max-w-4xl mx-auto">
-            {contextSummary && (
-              <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6 flex items-start">
-                <Info className="h-5 w-5 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
-                <div>
-                  <h3 className="text-sm font-medium text-blue-700">Contexto del CRM disponible</h3>
-                  <p className="text-xs text-blue-600 mt-1">{contextSummary}</p>
-                </div>
-              </div>
-            )}
-            
             <Tabs defaultValue="chat">
               <TabsList className="mb-6">
                 <TabsTrigger value="chat">Chat</TabsTrigger>

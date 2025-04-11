@@ -1,20 +1,21 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
-import { Calendar, Mail, AlertCircle, CheckCircle, RefreshCw, ExternalLink } from "lucide-react";
+import { Calendar, Mail, AlertCircle, CheckCircle, RefreshCw, ExternalLink, CheckSquare } from "lucide-react";
 import { googleClient } from '../../integrations/google/googleClient';
 import { useIntegrations } from '../../context/IntegrationsContext';
 import { supabase } from "@/integrations/supabase/client";
 
 const GoogleIntegration: React.FC = () => {
-  const { isGoogleConnected, connectGoogleCalendar, disconnectGoogleCalendar, syncCalendarEvents, syncEmails, syncState } = useIntegrations();
+  const { isGoogleConnected, connectGoogleCalendar, disconnectGoogleCalendar, syncCalendarEvents, syncEmails, syncTasks, syncState } = useIntegrations();
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
   const [isSyncingEmails, setIsSyncingEmails] = useState(false);
+  const [isSyncingTasks, setIsSyncingTasks] = useState(false);
   const { toast } = useToast();
 
   const handleConnect = async () => {
@@ -96,6 +97,26 @@ const GoogleIntegration: React.FC = () => {
     }
   };
 
+  const handleSyncTasks = async () => {
+    setIsSyncingTasks(true);
+    try {
+      await syncTasks();
+      toast({
+        title: "Sincronización completada",
+        description: "Tus tareas han sido sincronizadas con éxito",
+      });
+    } catch (error) {
+      console.error('Error syncing tasks:', error);
+      toast({
+        variant: "destructive",
+        title: "Error de sincronización",
+        description: "No se pudieron sincronizar tus tareas",
+      });
+    } finally {
+      setIsSyncingTasks(false);
+    }
+  };
+
   const testEdgeFunction = async () => {
     try {
       // For demonstration purposes; in a real app you'd use the actual access token from auth
@@ -149,7 +170,7 @@ const GoogleIntegration: React.FC = () => {
         <div className="flex justify-between items-center">
           <div>
             <CardTitle>Integración con Google</CardTitle>
-            <CardDescription>Conecta tu cuenta de Google para sincronizar calendarios y correos</CardDescription>
+            <CardDescription>Conecta tu cuenta de Google para sincronizar calendarios, tareas y correos</CardDescription>
           </div>
           {isGoogleConnected && (
             <Badge variant="outline" className="bg-green-100 text-green-800 hover:bg-green-200">
@@ -168,7 +189,7 @@ const GoogleIntegration: React.FC = () => {
             </p>
             <p>Para una funcionalidad completa:</p>
             <ul className="list-disc list-inside mt-2 space-y-1">
-              <li>Asegúrate de tener los permisos de Calendar y Gmail activados</li>
+              <li>Asegúrate de tener los permisos de Calendar, Tasks y Gmail activados</li>
               <li>Si encuentras problemas, revisa la consola para más detalles</li>
             </ul>
           </AlertDescription>
@@ -182,6 +203,18 @@ const GoogleIntegration: React.FC = () => {
               <div className="text-sm text-gray-500">
                 {syncState.lastCalendarSync ? 
                   `Última sincronización: ${new Date(syncState.lastCalendarSync).toLocaleString()}` : 
+                  "No sincronizado aún"}
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <CheckSquare className="h-5 w-5 text-gray-500" />
+            <div>
+              <div className="font-medium">Google Tasks</div>
+              <div className="text-sm text-gray-500">
+                {syncState.lastTasksSync ? 
+                  `Última sincronización: ${new Date(syncState.lastTasksSync).toLocaleString()}` : 
                   "No sincronizado aún"}
               </div>
             </div>
@@ -218,21 +251,32 @@ const GoogleIntegration: React.FC = () => {
           </Button>
         </div>
       </CardContent>
-      <CardFooter className="flex justify-end gap-3">
+      <CardFooter className="flex flex-wrap justify-end gap-3">
         {isGoogleConnected ? (
           <>
             <Button 
               variant="outline" 
               onClick={handleSyncCalendar} 
               disabled={isSyncingCalendar}
+              className="flex-1 sm:flex-none"
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${isSyncingCalendar ? "animate-spin" : ""}`} />
               Sincronizar Calendario
             </Button>
             <Button 
               variant="outline" 
+              onClick={handleSyncTasks}
+              disabled={isSyncingTasks}
+              className="flex-1 sm:flex-none"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isSyncingTasks ? "animate-spin" : ""}`} />
+              Sincronizar Tareas
+            </Button>
+            <Button 
+              variant="outline" 
               onClick={handleSyncEmails}
               disabled={isSyncingEmails}
+              className="flex-1 sm:flex-none"
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${isSyncingEmails ? "animate-spin" : ""}`} />
               Sincronizar Correos
@@ -241,6 +285,7 @@ const GoogleIntegration: React.FC = () => {
               variant="destructive" 
               onClick={handleDisconnect}
               disabled={isLoading}
+              className="flex-1 sm:flex-none"
             >
               Desconectar
             </Button>

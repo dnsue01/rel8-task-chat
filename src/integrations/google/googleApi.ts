@@ -1,3 +1,4 @@
+
 import { supabase } from "../supabase/client";
 
 // Cache the tokens in memory for the session
@@ -41,6 +42,70 @@ export const fetchCalendarEvents = async (): Promise<any> => {
     return response.data;
   } catch (error) {
     console.error("Error in fetchCalendarEvents:", error);
+    throw error;
+  }
+};
+
+/**
+ * Function to fetch task lists from Google Tasks API
+ * @returns Promise<any> with task lists
+ */
+export const fetchTaskLists = async (): Promise<any> => {
+  try {
+    if (!hasValidToken()) {
+      const newToken = await refreshAccessToken();
+      if (!newToken) {
+        throw new Error("Failed to refresh token");
+      }
+    }
+
+    const response = await supabase.functions.invoke("google-oauth", {
+      body: {
+        access_token: tokenCache.access_token,
+        endpoint: "tasks/lists",
+      },
+    });
+
+    if (response.error) {
+      throw new Error(`Error fetching task lists: ${response.error.message}`);
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error("Error in fetchTaskLists:", error);
+    throw error;
+  }
+};
+
+/**
+ * Function to fetch tasks from a specific task list
+ * @param listId The ID of the task list
+ * @returns Promise<any> with tasks
+ */
+export const fetchTasks = async (listId: string): Promise<any> => {
+  try {
+    if (!hasValidToken()) {
+      const newToken = await refreshAccessToken();
+      if (!newToken) {
+        throw new Error("Failed to refresh token");
+      }
+    }
+
+    const response = await supabase.functions.invoke("google-oauth", {
+      body: {
+        access_token: tokenCache.access_token,
+        endpoint: "tasks",
+        task_list_id: listId,
+      },
+    });
+
+    if (response.error) {
+      throw new Error(`Error fetching tasks: ${response.error.message}`);
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error("Error in fetchTasks:", error);
     throw error;
   }
 };

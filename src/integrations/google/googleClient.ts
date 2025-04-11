@@ -8,7 +8,7 @@ import {
   initGoogleOneTap,
   renderGoogleSignInButton 
 } from './googleAuth';
-import { fetchCalendarEvents, fetchEmails, fetchEmailDetails } from './googleApi';
+import { fetchCalendarEvents, fetchEmails, fetchEmailDetails, fetchTaskLists, fetchTasks } from './googleApi';
 import { CalendarEvent, Email } from "../../types/integrations";
 
 // Client ID from Google Developer Console should be configured here
@@ -77,11 +77,21 @@ export const googleClient = {
     }
   },
   
-  // Tasks - temporarily disabled as we don't have a tasks implementation yet
-  fetchTasks: async (): Promise<{ success: boolean, data?: any[], error?: any }> => {
+  // Tasks
+  fetchTaskLists: async (): Promise<{ success: boolean, data?: any[], error?: any }> => {
     try {
-      // This is a placeholder until we implement fetchTasks
-      return { success: true, data: [] };
+      const taskLists = await fetchTaskLists();
+      return { success: true, data: taskLists };
+    } catch (error) {
+      console.error("Error fetching task lists:", error);
+      return { success: false, error };
+    }
+  },
+  
+  fetchTasks: async (listId: string): Promise<{ success: boolean, data?: any[], error?: any }> => {
+    try {
+      const tasks = await fetchTasks(listId);
+      return { success: true, data: tasks };
     } catch (error) {
       console.error("Error fetching tasks:", error);
       return { success: false, error };

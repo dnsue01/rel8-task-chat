@@ -19,6 +19,21 @@ export interface CalendarEvent {
   attendees?: string[];
 }
 
+export interface Task {
+  id: string;
+  title: string;
+  notes?: string;
+  due?: Date;
+  completed?: boolean;
+  status: "needsAction" | "completed";
+  linkedNoteId?: string;
+}
+
+export interface TaskList {
+  id: string;
+  title: string;
+}
+
 export interface Email {
   id: string;
   subject: string;
@@ -33,11 +48,13 @@ export interface Email {
 export interface IntegrationSyncState {
   lastCalendarSync?: Date;
   lastEmailSync?: Date;
+  lastTasksSync?: Date;
 }
 
 export interface MatchResult {
   noteId?: string;
   eventId?: string;
+  taskId?: string;
   confidence: number; // 0-100
   matchedOn: 'title' | 'content' | 'time' | 'contacts' | 'manual';
 }

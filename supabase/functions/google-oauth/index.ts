@@ -15,7 +15,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { access_token, endpoint, message_id } = body;
+    const { access_token, endpoint, message_id, task_list_id } = body;
 
     if (!access_token) {
       return new Response(
@@ -41,8 +41,17 @@ serve(async (req) => {
               "&singleEvents=true" +
               "&orderBy=startTime";
         break;
-      case "tasks":
+      case "tasks/lists":
         url = "https://tasks.googleapis.com/tasks/v1/users/@me/lists";
+        break;
+      case "tasks":
+        if (!task_list_id) {
+          return new Response(
+            JSON.stringify({ error: "Task list ID is required for tasks endpoint" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        url = `https://tasks.googleapis.com/tasks/v1/lists/${task_list_id}/tasks`;
         break;
       case "gmail":
         url = "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=10";

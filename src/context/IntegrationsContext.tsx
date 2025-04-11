@@ -1,504 +1,537 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { CalendarEvent, Email, GoogleAuthConfig, IntegrationSyncState, MatchResult } from "../types/integrations";
+import { CalendarEvent, Email, GoogleAuthConfig, IntegrationSyncState, MatchResult, Task, TaskList } from "../types/integrations";
 import { useCrm } from "./CrmContext";
-import { toast } from "@/components/ui/use-toast";
+import { googleClient } from "../integrations/google/googleClient";
 import { parseISO } from "date-fns";
 
-type IntegrationsContextType = {
-  // Auth state
+interface IntegrationsContextType {
+  // Google
   isGoogleConnected: boolean;
-  googleConfig: GoogleAuthConfig | null;
-  
-  // Data
-  calendarEvents: CalendarEvent[];
-  emails: Email[];
-  syncState: IntegrationSyncState;
-  
-  // Actions
   connectGoogleCalendar: () => Promise<void>;
-  disconnectGoogleCalendar: () => void;
+  disconnectGoogleCalendar: () => Promise<void>;
+  
+  // Calendar
+  calendarEvents: CalendarEvent[];
   syncCalendarEvents: () => Promise<void>;
-  syncEmails: () => Promise<void>;
-  
-  // Linking
-  linkNoteToEvent: (noteId: string, eventId: string) => void;
-  linkEmailToNote: (emailId: string, noteId: string) => void;
-  linkEmailToEvent: (emailId: string, eventId: string) => void;
-  
-  // Helpers
-  getEventById: (id: string) => CalendarEvent | undefined;
-  getEmailById: (id: string) => Email | undefined;
   getEventsForDate: (date: Date) => CalendarEvent[];
+  linkNoteToEvent: (noteId: string, eventId: string) => void;
+  
+  // Tasks
+  tasks: Task[];
+  taskLists: TaskList[];
+  syncTasks: () => Promise<void>;
+  linkNoteToTask: (noteId: string, taskId: string) => void;
+  
+  // Email
+  emails: Email[];
+  syncEmails: () => Promise<void>;
   getEmailsForDate: (date: Date) => Email[];
+  linkEmailToNote: (noteId: string, emailId: string) => void;
+  
+  // Matching
   findMatchesForNote: (noteId: string) => MatchResult[];
   findMatchesForEmail: (emailId: string) => MatchResult[];
-};
+  
+  // Sync state
+  syncState: IntegrationSyncState;
+}
 
-const IntegrationsContext = createContext<IntegrationsContextType | undefined>(undefined);
+const IntegrationsContext = createContext<IntegrationsContextType>({} as IntegrationsContextType);
 
 export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentUser, notes } = useCrm();
-  
-  // States
+  const [isGoogleConnected, setIsGoogleConnected] = useState(false);
   const [googleConfig, setGoogleConfig] = useState<GoogleAuthConfig | null>(null);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [emails, setEmails] = useState<Email[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [taskLists, setTaskLists] = useState<TaskList[]>([]);
   const [syncState, setSyncState] = useState<IntegrationSyncState>({});
   
-  // Load saved integrations data from localStorage when available
+  const { notes } = useCrm();
+  
+  // Load integration data from localStorage when the app starts
   useEffect(() => {
-    if (!currentUser) return;
+    const savedGoogleConfig = localStorage.getItem('google_auth_config');
+    const savedCalendarEvents = localStorage.getItem('google_calendar_events');
+    const savedEmails = localStorage.getItem('google_emails');
+    const savedTasks = localStorage.getItem('google_tasks');
+    const savedTaskLists = localStorage.getItem('google_task_lists');
+    const savedSyncState = localStorage.getItem('integration_sync_state');
     
+    if (savedGoogleConfig) setGoogleConfig(JSON.parse(savedGoogleConfig));
+    if (savedCalendarEvents) {
+      const parsedEvents = JSON.parse(savedCalendarEvents) as CalendarEvent[];
+      setCalendarEvents(parsedEvents.map(event => ({
+        ...event,
+        startTime: parseISO(event.startTime as unknown as string),
+        endTime: parseISO(event.endTime as unknown as string),
+      })));
+    }
+    if (savedEmails) {
+      const parsedEmails = JSON.parse(savedEmails) as Email[];
+      setEmails(parsedEmails.map(email => ({
+        ...email,
+        receivedAt: parseISO(email.receivedAt as unknown as string),
+      })));
+    }
+    if (savedTasks) {
+      const parsedTasks = JSON.parse(savedTasks) as Task[];
+      setTasks(parsedTasks.map(task => ({
+        ...task,
+        due: task.due ? parseISO(task.due as unknown as string) : undefined,
+      })));
+    }
+    if (savedTaskLists) {
+      setTaskLists(JSON.parse(savedTaskLists));
+    }
+    if (savedSyncState) {
+      const parsedSyncState = JSON.parse(savedSyncState);
+      setSyncState({
+        ...parsedSyncState,
+        lastCalendarSync: parsedSyncState.lastCalendarSync ? new Date(parsedSyncState.lastCalendarSync) : undefined,
+        lastEmailSync: parsedSyncState.lastEmailSync ? new Date(parsedSyncState.lastEmailSync) : undefined,
+        lastTasksSync: parsedSyncState.lastTasksSync ? new Date(parsedSyncState.lastTasksSync) : undefined,
+      });
+    }
+  }, []);
+  
+  // Check Google connection status
+  useEffect(() => {
+    const isConnected = googleClient.isConnected();
+    setIsGoogleConnected(isConnected);
+  }, [googleConfig]);
+  
+  // Connect to Google Calendar
+  const connectGoogleCalendar = async (): Promise<void> => {
     try {
-      const savedGoogleConfig = localStorage.getItem(`crm_google_config_${currentUser.id}`);
-      const savedCalendarEvents = localStorage.getItem(`crm_calendar_events_${currentUser.id}`);
-      const savedEmails = localStorage.getItem(`crm_emails_${currentUser.id}`);
-      const savedSyncState = localStorage.getItem(`crm_sync_state_${currentUser.id}`);
+      const result = await googleClient.initiateGoogleAuth();
+      if (result.success && result.data) {
+        // For demo purposes, let's simulate storing the auth config
+        const simulatedConfig = {
+          accessToken: result.data.accessToken || 'simulated_token',
+          refreshToken: 'simulated_refresh_token',
+          expiresAt: Date.now() + 3600 * 1000, // Expires in 1 hour
+          scope: 'calendar tasks email',
+        };
+        
+        setGoogleConfig(simulatedConfig);
+        localStorage.setItem('google_auth_config', JSON.stringify(simulatedConfig));
+        localStorage.setItem('google_auth_token', simulatedConfig.accessToken);
+        
+        // Also store a flag to indicate connection status
+        localStorage.setItem('google_connected', 'true');
+        setIsGoogleConnected(true);
+        
+        // After connecting, sync data
+        await Promise.all([
+          syncCalendarEvents(),
+          syncEmails(),
+          syncTasks()
+        ]);
+      }
+    } catch (error) {
+      console.error('Error connecting to Google:', error);
+      throw error;
+    }
+  };
+  
+  // Disconnect from Google
+  const disconnectGoogleCalendar = async (): Promise<void> => {
+    try {
+      await googleClient.disconnectGoogle();
       
-      if (savedGoogleConfig) setGoogleConfig(JSON.parse(savedGoogleConfig));
-      if (savedCalendarEvents) {
-        const parsedEvents = JSON.parse(savedCalendarEvents) as CalendarEvent[];
-        setCalendarEvents(parsedEvents.map(event => ({
-          ...event,
-          startTime: parseISO(event.startTime as unknown as string),
-          endTime: parseISO(event.endTime as unknown as string)
-        })));
-      }
-      if (savedEmails) {
-        const parsedEmails = JSON.parse(savedEmails) as Email[];
-        setEmails(parsedEmails.map(email => ({
-          ...email,
-          receivedAt: parseISO(email.receivedAt as unknown as string)
-        })));
-      }
-      if (savedSyncState) {
-        const parsedSyncState = JSON.parse(savedSyncState) as IntegrationSyncState;
-        setSyncState({
-          ...parsedSyncState,
-          lastCalendarSync: parsedSyncState.lastCalendarSync ? parseISO(parsedSyncState.lastCalendarSync as unknown as string) : undefined,
-          lastEmailSync: parsedSyncState.lastEmailSync ? parseISO(parsedSyncState.lastEmailSync as unknown as string) : undefined,
+      // Clear saved data
+      localStorage.removeItem('google_auth_config');
+      localStorage.removeItem('google_auth_token');
+      localStorage.removeItem('google_calendar_events');
+      localStorage.removeItem('google_emails');
+      localStorage.removeItem('google_tasks');
+      localStorage.removeItem('google_task_lists');
+      localStorage.removeItem('google_connected');
+      
+      // Reset state
+      setGoogleConfig(null);
+      setCalendarEvents([]);
+      setEmails([]);
+      setTasks([]);
+      setTaskLists([]);
+      setIsGoogleConnected(false);
+    } catch (error) {
+      console.error('Error disconnecting from Google:', error);
+      throw error;
+    }
+  };
+  
+  // Sync calendar events
+  const syncCalendarEvents = async (): Promise<void> => {
+    try {
+      // In a real app, we would use the actual Google API client
+      // For the demo, we'll simulate fetching events
+      
+      // This is a simplified example to simulate fetching calendar events
+      const today = new Date();
+      const simulatedEvents: CalendarEvent[] = [];
+      
+      // Generate 10 random events over the next 7 days
+      for (let i = 0; i < 10; i++) {
+        const startDate = new Date(today);
+        startDate.setDate(startDate.getDate() + Math.floor(Math.random() * 7)); // Random day in the next week
+        startDate.setHours(9 + Math.floor(Math.random() * 8), 0, 0); // Between 9 AM and 5 PM
+        
+        const endDate = new Date(startDate);
+        endDate.setHours(startDate.getHours() + 1 + Math.floor(Math.random() * 3)); // 1-3 hours long
+        
+        simulatedEvents.push({
+          id: `event-${i}`,
+          title: `Evento ${i + 1}`,
+          description: `Descripción del evento ${i + 1}`,
+          startTime: startDate,
+          endTime: endDate,
+          location: Math.random() > 0.5 ? 'Oficina central' : 'Reunión virtual',
+          attendees: ['usuario@ejemplo.com', 'contacto@ejemplo.com']
         });
       }
+      
+      // Real API call would be something like:
+      // const { success, data } = await googleClient.fetchCalendarEvents();
+      // if (success && data) {
+      //   const formattedEvents = data.map(formatGoogleCalendarEvent);
+      //   setCalendarEvents(formattedEvents);
+      // }
+      
+      // Set the simulated events
+      setCalendarEvents(simulatedEvents);
+      
+      // Save to localStorage
+      localStorage.setItem('google_calendar_events', JSON.stringify(simulatedEvents));
+      
+      // Update sync state
+      const newSyncState = { ...syncState, lastCalendarSync: new Date() };
+      setSyncState(newSyncState);
+      localStorage.setItem('integration_sync_state', JSON.stringify(newSyncState));
     } catch (error) {
-      console.error("Error loading integration data:", error);
-    }
-  }, [currentUser]);
-  
-  // Save integration data to localStorage when it changes
-  useEffect(() => {
-    if (!currentUser) return;
-    
-    if (googleConfig) {
-      localStorage.setItem(`crm_google_config_${currentUser.id}`, JSON.stringify(googleConfig));
-    }
-    localStorage.setItem(`crm_calendar_events_${currentUser.id}`, JSON.stringify(calendarEvents));
-    localStorage.setItem(`crm_emails_${currentUser.id}`, JSON.stringify(emails));
-    localStorage.setItem(`crm_sync_state_${currentUser.id}`, JSON.stringify(syncState));
-  }, [currentUser, googleConfig, calendarEvents, emails, syncState]);
-  
-  const connectGoogleCalendar = async () => {
-    // En una implementación real, esto redirigiría al flujo OAuth de Google
-    // Para fines de demostración, simularemos una conexión exitosa con datos de ejemplo
-    try {
-      // Simulación de retraso de API
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const mockGoogleConfig: GoogleAuthConfig = {
-        accessToken: "mock-access-token",
-        refreshToken: "mock-refresh-token",
-        expiresAt: Date.now() + 3600000, // 1 hora a partir de ahora
-        scope: "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/gmail.readonly"
-      };
-      
-      setGoogleConfig(mockGoogleConfig);
-      setSyncState({
-        ...syncState,
-        lastCalendarSync: undefined,
-        lastEmailSync: undefined
-      });
-      
-      toast({
-        title: "Cuenta de Google conectada",
-        description: "Tu cuenta de Google ha sido conectada exitosamente (simulación)."
-      });
-      
-      // Sincronizar datos automáticamente después de conectar
-      await syncCalendarEvents();
-      await syncEmails();
-    } catch (error) {
-      console.error("Error al conectar con Google:", error);
-      toast({
-        title: "Error de conexión",
-        description: "No se pudo conectar con Google. Por favor intenta de nuevo.",
-        variant: "destructive"
-      });
+      console.error('Error syncing calendar events:', error);
+      throw error;
     }
   };
-  
-  const disconnectGoogleCalendar = () => {
-    // En una aplicación real, esto revocaría los tokens en Google
-    setGoogleConfig(null);
-    // Limpiar eventos y correos al desconectar
-    setCalendarEvents([]);
-    setEmails([]);
-    setSyncState({});
-    
-    toast({
-      title: "Cuenta de Google desconectada",
-      description: "Tu cuenta de Google ha sido desconectada exitosamente."
-    });
-  };
-  
-  const syncCalendarEvents = async () => {
-    if (!googleConfig) {
-      toast({
-        title: "No conectado",
-        description: "Conecta tu cuenta de Google primero.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
+
+  // Sync tasks
+  const syncTasks = async (): Promise<void> => {
     try {
-      // Simulación de retraso de API
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // In a real app, we would use the actual Google API client
+      // First fetch task lists, then fetch tasks for each list
       
-      // Generar eventos de calendario de ejemplo para hoy
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      const mockEvents: CalendarEvent[] = [
-        {
-          id: "event-1",
-          title: "Reunión con el equipo",
-          description: "Discutir el progreso del proyecto CRM",
-          startTime: new Date(today.getTime() + 10 * 3600 * 1000), // 10 AM
-          endTime: new Date(today.getTime() + 11 * 3600 * 1000), // 11 AM
-          location: "Sala de conferencias",
-          attendees: ["juan@example.com", "ana@example.com"]
-        },
-        {
-          id: "event-2",
-          title: "Llamada con cliente",
-          description: "Presentación de la nueva propuesta",
-          startTime: new Date(today.getTime() + 14 * 3600 * 1000), // 2 PM
-          endTime: new Date(today.getTime() + 15 * 3600 * 1000), // 3 PM
-          attendees: ["cliente@empresa.com"]
-        },
-        {
-          id: "event-3",
-          title: "Revisión de tareas",
-          startTime: new Date(today.getTime() + 16 * 3600 * 1000), // 4 PM
-          endTime: new Date(today.getTime() + 17 * 3600 * 1000) // 5 PM
-        }
+      // Simulate task lists
+      const simulatedTaskLists: TaskList[] = [
+        { id: 'list-1', title: 'Tareas personales' },
+        { id: 'list-2', title: 'Tareas de trabajo' }
       ];
       
-      setCalendarEvents(mockEvents);
-      setSyncState({
-        ...syncState,
-        lastCalendarSync: new Date()
-      });
+      // Simulate tasks
+      const simulatedTasks: Task[] = [];
       
-      // Auto-vincular eventos con notas basándose en el título
-      notes.forEach(note => {
-        mockEvents.forEach(event => {
-          if (note.content.toLowerCase().includes(event.title.toLowerCase())) {
-            linkNoteToEvent(note.id, event.id);
-          }
+      // Generate tasks for first list (personal)
+      for (let i = 0; i < 5; i++) {
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + Math.floor(Math.random() * 14)); // Due in next 14 days
+        
+        simulatedTasks.push({
+          id: `personal-task-${i}`,
+          title: `Tarea personal ${i + 1}`,
+          notes: `Notas para tarea personal ${i + 1}`,
+          due: dueDate,
+          status: Math.random() > 0.3 ? 'needsAction' : 'completed',
+          completed: Math.random() > 0.3 ? false : true
         });
-      });
+      }
       
-      toast({
-        title: "Calendario sincronizado",
-        description: `Se han sincronizado ${mockEvents.length} eventos del calendario.`
-      });
+      // Generate tasks for second list (work)
+      for (let i = 0; i < 5; i++) {
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + Math.floor(Math.random() * 7)); // Due in next 7 days
+        
+        simulatedTasks.push({
+          id: `work-task-${i}`,
+          title: `Tarea laboral ${i + 1}`,
+          notes: `Notas para tarea laboral ${i + 1}`,
+          due: dueDate,
+          status: Math.random() > 0.5 ? 'needsAction' : 'completed',
+          completed: Math.random() > 0.5 ? false : true
+        });
+      }
+      
+      // Set the simulated task lists and tasks
+      setTaskLists(simulatedTaskLists);
+      setTasks(simulatedTasks);
+      
+      // Save to localStorage
+      localStorage.setItem('google_task_lists', JSON.stringify(simulatedTaskLists));
+      localStorage.setItem('google_tasks', JSON.stringify(simulatedTasks));
+      
+      // Update sync state
+      const newSyncState = { ...syncState, lastTasksSync: new Date() };
+      setSyncState(newSyncState);
+      localStorage.setItem('integration_sync_state', JSON.stringify(newSyncState));
     } catch (error) {
-      console.error("Error al sincronizar eventos del calendario:", error);
-      toast({
-        title: "Error de sincronización",
-        description: "No se pudieron sincronizar los eventos del calendario.",
-        variant: "destructive"
-      });
+      console.error('Error syncing tasks:', error);
+      throw error;
     }
   };
   
-  const syncEmails = async () => {
-    if (!googleConfig) {
-      toast({
-        title: "No conectado",
-        description: "Conecta tu cuenta de Google primero.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
+  // Sync emails
+  const syncEmails = async (): Promise<void> => {
     try {
-      // Simulación de retraso de API
-      await new Promise(resolve => setTimeout(resolve, 2500));
+      // In a real app, we would use the actual Google API client
+      // For the demo, we'll simulate fetching emails
       
-      // Generar correos de ejemplo para hoy
+      // Simulated email data
+      const simulatedEmails: Email[] = [];
       const today = new Date();
-      today.setHours(0, 0, 0, 0);
       
-      const mockEmails: Email[] = [
-        {
-          id: "email-1",
-          subject: "Re: Reunión con el equipo",
-          sender: "juan@example.com",
-          recipients: ["tu@empresa.com"],
-          content: "Confirmo mi asistencia a la reunión de hoy a las 10 AM. Tengo algunas ideas para mejorar el flujo de trabajo.",
-          receivedAt: new Date(today.getTime() + 8.5 * 3600 * 1000) // 8:30 AM
-        },
-        {
-          id: "email-2",
-          subject: "Propuesta actualizada para cliente",
-          sender: "ana@example.com",
-          recipients: ["tu@empresa.com", "jefe@empresa.com"],
-          content: "Adjunto la propuesta actualizada para la llamada con el cliente hoy a las 2 PM. Revisé los puntos que discutimos ayer.",
-          receivedAt: new Date(today.getTime() + 12 * 3600 * 1000) // 12 PM
-        },
-        {
-          id: "email-3",
-          subject: "Recordatorio: Revisión de tareas",
-          sender: "sistema@empresa.com",
-          recipients: ["tu@empresa.com"],
-          content: "Este es un recordatorio automático para la revisión de tareas programada para hoy a las 4 PM.",
-          receivedAt: new Date(today.getTime() + 15 * 3600 * 1000) // 3 PM
-        }
-      ];
-      
-      setEmails(mockEmails);
-      setSyncState({
-        ...syncState,
-        lastEmailSync: new Date()
-      });
-      
-      // Auto-vincular correos con eventos del calendario basándose en el asunto
-      mockEmails.forEach(email => {
-        calendarEvents.forEach(event => {
-          if (email.subject.toLowerCase().includes(event.title.toLowerCase()) || 
-              (event.description && email.content.toLowerCase().includes(event.description.toLowerCase()))) {
-            linkEmailToEvent(email.id, event.id);
-          }
+      // Generate 15 random emails over the past 7 days
+      for (let i = 0; i < 15; i++) {
+        const receivedDate = new Date(today);
+        receivedDate.setDate(receivedDate.getDate() - Math.floor(Math.random() * 7)); // Random day in the past week
+        receivedDate.setHours(8 + Math.floor(Math.random() * 12), 
+                             Math.floor(Math.random() * 60), 
+                             Math.floor(Math.random() * 60));
+        
+        const simulatedSenders = [
+          'cliente1@ejemplo.com',
+          'proveedor@empresa.com',
+          'soporte@servicio.com',
+          'marketing@newsletter.com',
+          'rrhh@empresa.com'
+        ];
+        
+        const simulatedSubjects = [
+          'Solicitud de información',
+          'Seguimiento de pedido',
+          'Factura pendiente',
+          'Reunión próxima semana',
+          'Actualización de proyecto'
+        ];
+        
+        simulatedEmails.push({
+          id: `email-${i}`,
+          subject: simulatedSubjects[Math.floor(Math.random() * simulatedSubjects.length)],
+          sender: simulatedSenders[Math.floor(Math.random() * simulatedSenders.length)],
+          recipients: ['tu@empresa.com'],
+          content: `Este es el contenido del correo ${i + 1}. Lorem ipsum dolor sit amet, consectetur adipiscing elit.`,
+          receivedAt: receivedDate,
         });
-      });
+      }
       
-      toast({
-        title: "Correos sincronizados",
-        description: `Se han sincronizado ${mockEmails.length} correos electrónicos.`
-      });
+      // Set the simulated emails
+      setEmails(simulatedEmails);
+      
+      // Save to localStorage
+      localStorage.setItem('google_emails', JSON.stringify(simulatedEmails));
+      
+      // Update sync state
+      const newSyncState = { ...syncState, lastEmailSync: new Date() };
+      setSyncState(newSyncState);
+      localStorage.setItem('integration_sync_state', JSON.stringify(newSyncState));
     } catch (error) {
-      console.error("Error al sincronizar correos:", error);
-      toast({
-        title: "Error de sincronización",
-        description: "No se pudieron sincronizar los correos electrónicos.",
-        variant: "destructive"
-      });
+      console.error('Error syncing emails:', error);
+      throw error;
     }
   };
   
-  const linkNoteToEvent = (noteId: string, eventId: string) => {
-    setCalendarEvents(
-      calendarEvents.map(event => 
-        event.id === eventId ? { ...event, linkedNoteId: noteId } : event
-      )
-    );
-    
-    toast({
-      title: "Nota vinculada",
-      description: "La nota ha sido vinculada al evento del calendario."
+  // Get events for a specific date
+  const getEventsForDate = (date: Date): CalendarEvent[] => {
+    return calendarEvents.filter(event => {
+      const eventDate = new Date(event.startTime);
+      return eventDate.getDate() === date.getDate() &&
+             eventDate.getMonth() === date.getMonth() &&
+             eventDate.getFullYear() === date.getFullYear();
     });
   };
   
-  const linkEmailToNote = (emailId: string, noteId: string) => {
-    setEmails(
-      emails.map(email => 
-        email.id === emailId ? { ...email, linkedNoteId: noteId } : email
-      )
-    );
-    
-    toast({
-      title: "Correo vinculado",
-      description: "El correo ha sido vinculado a la nota."
+  // Get emails for a specific date
+  const getEmailsForDate = (date: Date): Email[] => {
+    return emails.filter(email => {
+      const emailDate = new Date(email.receivedAt);
+      return emailDate.getDate() === date.getDate() &&
+             emailDate.getMonth() === date.getMonth() &&
+             emailDate.getFullYear() === date.getFullYear();
     });
   };
   
-  const linkEmailToEvent = (emailId: string, eventId: string) => {
-    setEmails(
-      emails.map(email => 
-        email.id === emailId ? { ...email, linkedEventId: eventId } : email
-      )
-    );
-    
-    toast({
-      title: "Correo vinculado",
-      description: "El correo ha sido vinculado al evento del calendario."
+  // Link a note to an event
+  const linkNoteToEvent = (noteId: string, eventId: string): void => {
+    const updatedEvents = calendarEvents.map(event => {
+      if (event.id === eventId) {
+        return { ...event, linkedNoteId: noteId };
+      }
+      return event;
     });
-  };
-  
-  const getEventById = (id: string) => {
-    return calendarEvents.find(event => event.id === id);
-  };
-  
-  const getEmailById = (id: string) => {
-    return emails.find(email => email.id === id);
-  };
-  
-  const getEventsForDate = (date: Date) => {
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
     
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
-    
-    return calendarEvents.filter(
-      event => event.startTime >= startOfDay && event.startTime <= endOfDay
-    );
+    setCalendarEvents(updatedEvents);
+    localStorage.setItem('google_calendar_events', JSON.stringify(updatedEvents));
   };
   
-  const getEmailsForDate = (date: Date) => {
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
+  // Link a note to a task
+  const linkNoteToTask = (noteId: string, taskId: string): void => {
+    const updatedTasks = tasks.map(task => {
+      if (task.id === taskId) {
+        return { ...task, linkedNoteId: noteId };
+      }
+      return task;
+    });
     
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
-    
-    return emails.filter(
-      email => email.receivedAt >= startOfDay && email.receivedAt <= endOfDay
-    );
+    setTasks(updatedTasks);
+    localStorage.setItem('google_tasks', JSON.stringify(updatedTasks));
   };
   
-  // Función de utilidad para encontrar posibles coincidencias para una nota
-  const findMatchesForNote = (noteId: string) => {
+  // Link an email to a note
+  const linkEmailToNote = (noteId: string, emailId: string): void => {
+    const updatedEmails = emails.map(email => {
+      if (email.id === emailId) {
+        return { ...email, linkedNoteId: noteId };
+      }
+      return email;
+    });
+    
+    setEmails(updatedEmails);
+    localStorage.setItem('google_emails', JSON.stringify(updatedEmails));
+  };
+  
+  // Find potential matches between notes and events/emails
+  const findMatchesForNote = (noteId: string): MatchResult[] => {
     const note = notes.find(n => n.id === noteId);
     if (!note) return [];
     
-    const results: MatchResult[] = [];
+    const matches: MatchResult[] = [];
     
-    // Comprobar coincidencias con eventos del calendario
+    // Look for matches in events
     calendarEvents.forEach(event => {
       let confidence = 0;
-      let matchedOn: MatchResult["matchedOn"] = 'title';
       
-      // Coincidencia por título/contenido
-      if (event.title.toLowerCase().includes(note.content.toLowerCase()) || 
-          note.content.toLowerCase().includes(event.title.toLowerCase())) {
-        confidence += 60;
-        matchedOn = 'title';
-      } else if (event.description && 
-                (event.description.toLowerCase().includes(note.content.toLowerCase()) || 
-                 note.content.toLowerCase().includes(event.description.toLowerCase()))) {
-        confidence += 50;
-        matchedOn = 'content';
+      // Simple matching logic (in a real app, this would be more sophisticated)
+      if (event.title && note.content.includes(event.title)) {
+        confidence += 40;
+      }
+      if (event.description && note.content.includes(event.description)) {
+        confidence += 30;
       }
       
-      // Solo añadir si hay una coincidencia razonable
-      if (confidence > 40) {
-        results.push({
+      if (confidence > 20) {
+        matches.push({
           eventId: event.id,
           confidence,
-          matchedOn
+          matchedOn: 'content',
         });
       }
     });
     
-    return results;
+    // Look for matches in tasks
+    tasks.forEach(task => {
+      let confidence = 0;
+      
+      // Simple matching logic
+      if (task.title && note.content.includes(task.title)) {
+        confidence += 40;
+      }
+      if (task.notes && note.content.includes(task.notes)) {
+        confidence += 30;
+      }
+      
+      if (confidence > 20) {
+        matches.push({
+          taskId: task.id,
+          confidence,
+          matchedOn: 'content',
+        });
+      }
+    });
+    
+    // Sort by confidence
+    return matches.sort((a, b) => b.confidence - a.confidence);
   };
   
-  // Función de utilidad para encontrar posibles coincidencias para un correo
-  const findMatchesForEmail = (emailId: string) => {
+  // Find potential matches for an email
+  const findMatchesForEmail = (emailId: string): MatchResult[] => {
     const email = emails.find(e => e.id === emailId);
     if (!email) return [];
     
-    const results: MatchResult[] = [];
+    const matches: MatchResult[] = [];
     
-    // Comprobar coincidencias con notas
+    // Look for matches in notes
     notes.forEach(note => {
       let confidence = 0;
-      let matchedOn: MatchResult["matchedOn"] = 'content';
       
-      // Coincidencia por contenido
-      if (note.content.toLowerCase().includes(email.subject.toLowerCase()) || 
-          email.content.toLowerCase().includes(note.content.toLowerCase())) {
-        confidence += 50;
-        matchedOn = 'content';
+      // Simple matching logic
+      if (note.content.includes(email.subject)) {
+        confidence += 40;
       }
       
-      // Solo añadir si hay una coincidencia razonable
-      if (confidence > 40) {
-        results.push({
+      if (confidence > 20) {
+        matches.push({
           noteId: note.id,
           confidence,
-          matchedOn
+          matchedOn: 'content',
         });
       }
     });
     
-    // Comprobar coincidencias con eventos del calendario
+    // Look for matches in events
     calendarEvents.forEach(event => {
       let confidence = 0;
-      let matchedOn: MatchResult["matchedOn"] = 'title';
       
-      // Coincidencia por título
-      if (event.title.toLowerCase().includes(email.subject.toLowerCase()) || 
-          email.subject.toLowerCase().includes(event.title.toLowerCase())) {
-        confidence += 70;
-        matchedOn = 'title';
-      }
-      // Coincidencia por asistentes
-      else if (event.attendees && 
-              event.attendees.includes(email.sender)) {
-        confidence += 60;
-        matchedOn = 'contacts';
-      }
-      // Coincidencia por contenido
-      else if (event.description && 
-              event.description.toLowerCase().includes(email.content.toLowerCase())) {
-        confidence += 40;
-        matchedOn = 'content';
+      // Simple matching logic
+      if (event.title && event.title.includes(email.subject)) {
+        confidence += 30;
       }
       
-      // Solo añadir si hay una coincidencia razonable
-      if (confidence > 40) {
-        results.push({
+      // Check if email was received close to event time
+      const emailTime = new Date(email.receivedAt).getTime();
+      const eventTime = new Date(event.startTime).getTime();
+      const timeDiff = Math.abs(emailTime - eventTime);
+      const hoursDiff = timeDiff / (1000 * 60 * 60);
+      
+      if (hoursDiff < 24) {
+        confidence += 20;
+      }
+      
+      if (confidence > 20) {
+        matches.push({
           eventId: event.id,
           confidence,
-          matchedOn
+          matchedOn: 'title',
         });
       }
     });
     
-    return results;
+    // Sort by confidence
+    return matches.sort((a, b) => b.confidence - a.confidence);
   };
   
-  const value: IntegrationsContextType = {
-    isGoogleConnected: !!googleConfig,
-    googleConfig,
-    calendarEvents,
-    emails,
-    syncState,
-    connectGoogleCalendar,
-    disconnectGoogleCalendar,
-    syncCalendarEvents,
-    syncEmails,
-    linkNoteToEvent,
-    linkEmailToNote,
-    linkEmailToEvent,
-    getEventById,
-    getEmailById,
-    getEventsForDate,
-    getEmailsForDate,
-    findMatchesForNote,
-    findMatchesForEmail
-  };
-
-  return <IntegrationsContext.Provider value={value}>{children}</IntegrationsContext.Provider>;
+  return (
+    <IntegrationsContext.Provider value={{
+      isGoogleConnected,
+      connectGoogleCalendar,
+      disconnectGoogleCalendar,
+      calendarEvents,
+      syncCalendarEvents,
+      getEventsForDate,
+      linkNoteToEvent,
+      tasks,
+      taskLists,
+      syncTasks,
+      linkNoteToTask,
+      emails,
+      syncEmails,
+      getEmailsForDate,
+      linkEmailToNote,
+      findMatchesForNote,
+      findMatchesForEmail,
+      syncState,
+    }}>
+      {children}
+    </IntegrationsContext.Provider>
+  );
 };
 
-export const useIntegrations = () => {
-  const context = useContext(IntegrationsContext);
-  if (context === undefined) {
-    throw new Error("useIntegrations debe usarse dentro de un IntegrationsProvider");
-  }
-  return context;
-};
+export const useIntegrations = () => useContext(IntegrationsContext);
