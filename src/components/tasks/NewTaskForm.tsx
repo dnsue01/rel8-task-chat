@@ -37,6 +37,7 @@ const NewTaskForm: React.FC<NewTaskFormProps> = ({ contactId }) => {
       status: "waiting",
       priority,
       dueDate,
+      completed: false, // Añadimos la propiedad completed requerida
     });
 
     // Reset form

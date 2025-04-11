@@ -71,6 +71,7 @@ export const sampleTasks: Task[] = [
     priority: "high",
     createdAt: new Date("2023-04-07T09:00:00"),
     dueDate: new Date("2023-04-12T17:00:00"),
+    completed: false,
   },
   {
     id: "t2",
@@ -81,6 +82,7 @@ export const sampleTasks: Task[] = [
     priority: "medium",
     createdAt: new Date("2023-04-07T09:30:00"),
     dueDate: new Date("2023-04-10T12:00:00"),
+    completed: false,
   },
   {
     id: "t3",
@@ -92,6 +94,7 @@ export const sampleTasks: Task[] = [
     createdAt: new Date("2023-04-05T14:00:00"),
     dueDate: new Date("2023-04-07T17:00:00"),
     completedAt: new Date("2023-04-07T15:30:00"),
+    completed: true,
   },
   {
     id: "t4",
@@ -101,6 +104,7 @@ export const sampleTasks: Task[] = [
     priority: "high",
     createdAt: new Date("2023-03-30T10:00:00"),
     dueDate: new Date("2023-04-05T17:00:00"),
+    completed: false,
   },
   {
     id: "t5",
@@ -111,6 +115,7 @@ export const sampleTasks: Task[] = [
     priority: "low",
     createdAt: new Date("2023-04-06T08:30:00"),
     dueDate: new Date("2023-04-15T17:00:00"),
+    completed: false,
   },
 ];
 
