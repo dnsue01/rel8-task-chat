@@ -13,9 +13,9 @@ import { Note } from "../types/index";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { toast } from "react-toastify";
+import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const IntegrationsPage: React.FC = () => {
   const { 
@@ -39,7 +39,7 @@ const IntegrationsPage: React.FC = () => {
     findMatchesForEmail
   } = useIntegrations();
   
-  const { notes, getContactById } = useCrm();
+  const { notes, getContactById, contacts, addTaskToContact } = useCrm();
   
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTab, setSelectedTab] = useState<string>("calendar");
@@ -47,6 +47,7 @@ const IntegrationsPage: React.FC = () => {
   const [syncingEmail, setSyncingEmail] = useState<boolean>(false);
   const [syncingTasks, setSyncingTasks] = useState<boolean>(false);
   const [connecting, setConnecting] = useState<boolean>(false);
+  const { toast } = useToast();
 
   const handleSyncCalendar = async () => {
     setSyncingCalendar(true);
@@ -688,7 +689,8 @@ interface TaskCardProps {
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({ task, notes, onLinkNote }) => {
-  const { contacts, addTaskToContact } = useCrm();
+  const { contacts } = useCrm();
+  const { toast } = useToast();
   const linkedNote = notes.find(n => n.id === task.linkedNoteId);
   const [selectedContact, setSelectedContact] = useState<string | null>(task.contactAssociation?.selected || null);
   
@@ -698,18 +700,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, notes, onLinkNote }) => {
     if (contactName !== "Nuevo contacto") {
       const contactMatch = contacts.find(contact => contact.name === contactName);
       if (contactMatch) {
-        addTaskToContact({
-          id: task.id,
-          title: task.title,
-          description: task.notes,
-          dueDate: task.due,
-          status: task.status === "completed" ? "completed" : "pending",
-          priority: "medium",
-          contactId: contactMatch.id,
-          completed: task.status === "completed",
-          createdAt: new Date()
-        });
-        
+        // Update the task with the contact association in local storage
         const updatedTasks = JSON.parse(localStorage.getItem('google_tasks') || '[]');
         const taskIndex = updatedTasks.findIndex((t: Task) => t.id === task.id);
         
@@ -807,278 +798,4 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, notes, onLinkNote }) => {
                       ))}
                     </CommandGroup>
                   </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          ) : (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 text-xs">
-                  Asociar contacto <ChevronRight className="h-3 w-3 ml-1" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="p-0 w-[200px]" align="end">
-                <Command>
-                  <CommandList>
-                    <CommandEmpty>Sin sugerencias</CommandEmpty>
-                    <CommandGroup>
-                      {contacts.map((contact, i) => (
-                        <CommandItem 
-                          key={i} 
-                          onSelect={() => handleContactSelect(contact.name)}
-                          className="cursor-pointer"
-                        >
-                          {contact.name}
-                        </CommandItem>
-                      ))}
-                      <CommandItem
-                        onSelect={() => handleContactSelect("Nuevo contacto")}
-                        className="cursor-pointer text-blue-600"
-                      >
-                        + Nuevo contacto
-                      </CommandItem>
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          )}
-        </div>
-      </div>
-      
-      <div className="mt-4 pt-3 border-t">
-        {linkedNote ? (
-          <div className="bg-gray-50 p-3 rounded text-sm">
-            <div className="flex justify-between">
-              <p className="font-medium text-xs text-gray-500 mb-1">Nota vinculada</p>
-            </div>
-            <p className="text-gray-700">{linkedNote.content}</p>
-          </div>
-        ) : (
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-gray-500">No hay nota vinculada</p>
-            
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="sm" className="flex items-center gap-1">
-                  <Link2 className="h-3.5 w-3.5" />
-                  <span>Vincular nota</span>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="p-0" align="end">
-                <Command>
-                  <CommandList>
-                    <CommandEmpty>No hay notas disponibles</CommandEmpty>
-                    <CommandGroup>
-                      {notes.map((note) => (
-                        <CommandItem 
-                          key={note.id}
-                          onSelect={() => onLinkNote(note.id)}
-                          className="cursor-pointer"
-                        >
-                          <span className="truncate">{note.content}</span>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-interface EmailCardProps {
-  email: Email;
-  notes: Note[];
-  onLinkNote: (noteId: string) => void;
-}
-
-const EmailCard: React.FC<EmailCardProps> = ({ email, notes, onLinkNote }) => {
-  const linkedNote = notes.find(n => n.id === email.linkedNoteId);
-  
-  return (
-    <div className="border rounded-lg p-4">
-      <div className="flex justify-between items-start">
-        <h3 className="font-medium">{email.subject}</h3>
-        <p className="text-xs text-gray-500">
-          {format(email.receivedAt, 'HH:mm')}
-        </p>
-      </div>
-      
-      <div className="mt-1 flex justify-between">
-        <p className="text-sm text-gray-700">{email.sender}</p>
-      </div>
-      
-      <p className="mt-2 text-sm text-gray-600 line-clamp-2">{email.content}</p>
-      
-      <div className="mt-4 pt-3 border-t">
-        {linkedNote ? (
-          <div className="bg-gray-50 p-3 rounded text-sm">
-            <div className="flex justify-between">
-              <p className="font-medium text-xs text-gray-500 mb-1">Nota vinculada</p>
-            </div>
-            <p className="text-gray-700">{linkedNote.content}</p>
-          </div>
-        ) : (
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-gray-500">No hay nota vinculada</p>
-            
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="sm" className="flex items-center gap-1">
-                  <Link2 className="h-3.5 w-3.5" />
-                  <span>Vincular nota</span>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="p-0" align="end">
-                <Command>
-                  <CommandList>
-                    <CommandEmpty>No hay notas disponibles</CommandEmpty>
-                    <CommandGroup>
-                      {notes.map((note) => (
-                        <CommandItem 
-                          key={note.id}
-                          onSelect={() => onLinkNote(note.id)}
-                          className="cursor-pointer"
-                        >
-                          <span className="truncate">{note.content}</span>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-interface NoteWithMatchesProps {
-  note: Note;
-  matches: MatchResult[];
-  calendarEvents: CalendarEvent[];
-}
-
-const NoteWithMatches: React.FC<NoteWithMatchesProps> = ({ note, matches, calendarEvents }) => {
-  const eventMatches = matches.filter(m => m.eventId);
-  
-  return (
-    <div className="border rounded-lg p-3">
-      <p className="text-sm mb-2">{note.content}</p>
-      
-      {eventMatches.length > 0 ? (
-        <div>
-          <p className="text-xs font-medium text-gray-500 mb-1">Posibles coincidencias:</p>
-          <div className="space-y-1">
-            {eventMatches.map((match, index) => {
-              const event = calendarEvents.find(e => e.id === match.eventId);
-              if (!event) return null;
-              
-              return (
-                <div key={index} className="flex items-center justify-between text-xs bg-gray-50 p-1.5 rounded">
-                  <div>
-                    <p className="font-medium">{event.title}</p>
-                    <span className="text-gray-500">
-                      {format(event.startTime, 'HH:mm')}
-                    </span>
-                  </div>
-                  <Badge variant="secondary" className="text-xs">
-                    {match.confidence}% 
-                  </Badge>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ) : (
-        <p className="text-xs text-gray-500">Sin coincidencias</p>
-      )}
-    </div>
-  );
-};
-
-interface EmailWithMatchesProps {
-  email: Email;
-  matches: MatchResult[];
-  notes: Note[];
-  calendarEvents: CalendarEvent[];
-  onLinkNote: (noteId: string) => void;
-}
-
-const EmailWithMatches: React.FC<EmailWithMatchesProps> = ({ 
-  email, matches, notes, calendarEvents, onLinkNote 
-}) => {
-  const noteMatches = matches.filter(m => m.noteId);
-  const eventMatches = matches.filter(m => m.eventId);
-  
-  return (
-    <div className="border rounded-lg p-3">
-      <p className="font-medium text-sm">{email.subject}</p>
-      <p className="text-xs text-gray-500 mb-2">{email.sender}</p>
-      
-      {noteMatches.length > 0 || eventMatches.length > 0 ? (
-        <div className="space-y-2">
-          {noteMatches.length > 0 && (
-            <div>
-              <p className="text-xs font-medium text-gray-500 mb-1">Notas relacionadas:</p>
-              {noteMatches.map((match, index) => {
-                const note = notes.find(n => n.id === match.noteId);
-                if (!note) return null;
-                
-                return (
-                  <div key={index} className="flex items-center justify-between text-xs bg-gray-50 p-2 rounded mb-1">
-                    <p className="truncate">{note.content}</p>
-                    <Button 
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2"
-                      onClick={() => onLinkNote(note.id)}
-                    >
-                      <Link2 className="h-3 w-3 mr-1" />
-                      <span className="text-[10px]">Vincular</span>
-                    </Button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          
-          {eventMatches.length > 0 && (
-            <div>
-              <p className="text-xs font-medium text-gray-500 mb-1">Eventos relacionados:</p>
-              {eventMatches.map((match, index) => {
-                const event = calendarEvents.find(e => e.id === match.eventId);
-                if (!event) return null;
-                
-                return (
-                  <div key={index} className="flex items-center justify-between text-xs bg-gray-50 p-2 rounded mb-1">
-                    <div>
-                      <p className="font-medium">{event.title}</p>
-                      <p className="text-gray-500">
-                        {format(event.startTime, 'HH:mm')} - {format(event.endTime, 'HH:mm')}
-                      </p>
-                    </div>
-                    <Badge variant="secondary" className="text-xs">
-                      {match.confidence}% 
-                    </Badge>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      ) : (
-        <p className="text-xs text-gray-500">Sin coincidencias</p>
-      )}
-    </div>
-  );
-};
-
-export default IntegrationsPage;
+                </Command
