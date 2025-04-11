@@ -1,12 +1,14 @@
-// src/pages/AIAssistant.tsx
+
 import React from 'react';
 import AIAssistantComponent from '@/components/AIAssistant/AIAssistantComponent';
+import { useNavigate } from 'react-router-dom';
+import Layout from '@/components/layout/Layout';
 
 const AIAssistant: React.FC = () => {
   return (
-    <div>
+    <Layout>
       <AIAssistantComponent />
-    </div>
+    </Layout>
   );
 };
 
