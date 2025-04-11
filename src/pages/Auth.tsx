@@ -311,57 +311,6 @@ const Auth: React.FC = () => {
       </div>
     </div>
   );
-
-  function handleLogin(e: React.FormEvent) {
-    e.preventDefault();
-    
-    try {
-      login(email, password);
-      toast({
-        title: "Inicio de sesión exitoso",
-        description: "Bienvenido a tu CRM personal",
-      });
-      navigate("/app");
-    } catch (error) {
-      toast({
-        title: "Error al iniciar sesión",
-        description: error instanceof Error ? error.message : "Credenciales inválidas",
-        variant: "destructive",
-      });
-    }
-  }
-
-  function handleRegister(e: React.FormEvent) {
-    e.preventDefault();
-    
-    if (!name || !email || !password) {
-      toast({
-        title: "Campos incompletos",
-        description: "Por favor completa todos los campos",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      register(name, email, password);
-      toast({
-        title: "Registro exitoso",
-        description: "Tu cuenta ha sido creada. ¡Bienvenido!",
-      });
-      navigate("/app");
-    } catch (error) {
-      toast({
-        title: "Error al registrarse",
-        description: error instanceof Error ? error.message : "No se pudo crear la cuenta",
-        variant: "destructive",
-      });
-    }
-  }
-
-  function goBack() {
-    navigate('/');
-  }
 };
 
 export default Auth;
