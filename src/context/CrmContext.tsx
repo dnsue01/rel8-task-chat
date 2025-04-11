@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { sampleContacts, sampleTasks, sampleNotes } from "../data/sampleData";
-import { Contact, Task, Note, TaskStatus, TaskPriority, ContactStatus } from "../types";
+import { Contact, Task, Note, User } from "../types";
 
 type CrmContextType = {
   contacts: Contact[];
@@ -10,7 +10,7 @@ type CrmContextType = {
   activeContactId: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  currentUser: { id: string; name: string; email: string } | null;
+  currentUser: User | null;
   
   setActiveContactId: (id: string) => void;
   addContact: (contact: Omit<Contact, "id" | "lastActivity">) => Promise<void>;
@@ -27,7 +27,7 @@ type CrmContextType = {
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
-  updateUser: (user: { id: string; name: string; email: string }) => void;
+  updateUser: (user: User) => void;
 };
 
 const CrmContext = createContext<CrmContextType | undefined>(undefined);
@@ -39,7 +39,7 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeContactId, setActiveContactId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentUser, setCurrentUser] = useState<{ id: string; name: string; email: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
     const userData = localStorage.getItem('crm_user');
@@ -297,8 +297,9 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     login,
     register,
     logout,
-    updateUser: (user: { id: string; name: string; email: string }) => {
+    updateUser: (user: User) => {
       setCurrentUser(user);
+      localStorage.setItem('crm_user', JSON.stringify(user));
       // In a real app, you would also update the user in your backend
     }
   };
