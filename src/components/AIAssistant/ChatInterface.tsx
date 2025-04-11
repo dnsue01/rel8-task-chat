@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Send, Loader2 } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
+import { useIntegrations } from '@/context/IntegrationsContext';
 
 interface Message {
   id: string;
@@ -19,6 +20,7 @@ const ChatInterface: React.FC = () => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { calendarEvents, tasks, emails, taskLists } = useIntegrations();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -27,6 +29,51 @@ const ChatInterface: React.FC = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Function to prepare context for the AI
+  const prepareContextForAI = () => {
+    let context = '';
+    
+    // Add calendar events context
+    if (calendarEvents && calendarEvents.length > 0) {
+      context += 'Tus próximos eventos de calendario:\n';
+      calendarEvents.slice(0, 5).forEach(event => {
+        const startDate = new Date(event.startTime).toLocaleString();
+        context += `- "${event.title}" el ${startDate}\n`;
+      });
+      context += '\n';
+    }
+    
+    // Add tasks context
+    if (tasks && tasks.length > 0) {
+      context += 'Tus tareas pendientes:\n';
+      const pendingTasks = tasks.filter(task => task.status === 'needsAction');
+      pendingTasks.slice(0, 5).forEach(task => {
+        context += `- ${task.title}\n`;
+      });
+      context += '\n';
+    }
+    
+    // Add task lists if available
+    if (taskLists && taskLists.length > 0) {
+      context += 'Tus listas de tareas:\n';
+      taskLists.slice(0, 3).forEach(list => {
+        context += `- ${list.title}\n`;
+      });
+      context += '\n';
+    }
+    
+    // Add emails context
+    if (emails && emails.length > 0) {
+      context += 'Tus correos recientes:\n';
+      emails.slice(0, 3).forEach(email => {
+        const date = new Date(email.receivedAt).toLocaleDateString();
+        context += `- De: ${email.sender}, Asunto: "${email.subject}" (${date})\n`;
+      });
+    }
+    
+    return context;
+  };
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,11 +91,15 @@ const ChatInterface: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // Llamar a la Edge Function de Supabase para procesar el mensaje
+      // Prepare context
+      const context = prepareContextForAI();
+      
+      // Call the Edge Function of Supabase to process the message
       const response = await supabase.functions.invoke('openai-chat', {
         body: {
           prompt: input,
-          messages: messages, // Enviar el historial de mensajes para contexto
+          messages: messages,
+          context: context, // Pass the prepared context to the API
         },
       });
 
@@ -56,7 +107,7 @@ const ChatInterface: React.FC = () => {
         throw new Error(response.error.message || 'Error al procesar la solicitud');
       }
 
-      // Añadir la respuesta del asistente
+      // Add the assistant's response
       const aiMessage: Message = {
         id: crypto.randomUUID(),
         sender: 'ai',
@@ -68,7 +119,7 @@ const ChatInterface: React.FC = () => {
     } catch (error) {
       console.error('Error al enviar mensaje:', error);
       
-      // Añadir un mensaje de error
+      // Add an error message
       const errorMessage: Message = {
         id: crypto.randomUUID(),
         sender: 'ai',

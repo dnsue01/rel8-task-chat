@@ -1,15 +1,14 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import ChatInterface from "./ChatInterface";
 import { MessageSquare, Calendar, CheckSquare } from "lucide-react";
-import { fetchCalendarEvents } from '@/integrations/google/googleApi';
-import { fetchTaskLists, fetchTasks } from '@/integrations/google/googleApi';
-import { useEffect } from 'react';
+import { useIntegrations } from '@/context/IntegrationsContext';
 
 const AIAssistantComponent: React.FC = () => {
   const [activeTab, setActiveTab] = useState("chat");
+  const { calendarEvents, tasks, emails, syncCalendarEvents, syncTasks, syncEmails } = useIntegrations();
   const [templates, setTemplates] = useState([
     {
       id: 1,
@@ -41,41 +40,23 @@ const AIAssistantComponent: React.FC = () => {
     }
   ]);
 
-  // Estado para almacenar los eventos del calendario, las tareas y las listas de tareas
-  const [calendarEvents, setCalendarEvents] = useState([]);
-  const [taskLists, setTaskLists] = useState([]);
-  const [tasks, setTasks] = useState({});
-
   // Cargar datos cuando se monta el componente
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Intentar cargar eventos del calendario
-        const events = await fetchCalendarEvents();
-        setCalendarEvents(events);
-        
-        // Intentar cargar listas de tareas
-        const lists = await fetchTaskLists();
-        setTaskLists(lists);
-        
-        // Para cada lista de tareas, cargar sus tareas
-        const tasksData = {};
-        for (const list of lists) {
-          try {
-            const listTasks = await fetchTasks(list.id);
-            tasksData[list.id] = listTasks;
-          } catch (error) {
-            console.error(`Error fetching tasks for list ${list.id}:`, error);
-          }
-        }
-        setTasks(tasksData);
+        // Try to load calendar events, tasks, and emails
+        await Promise.all([
+          syncCalendarEvents(),
+          syncTasks(),
+          syncEmails()
+        ]);
       } catch (error) {
         console.error("Error loading data:", error);
       }
     };
     
     loadData();
-  }, []);
+  }, [syncCalendarEvents, syncTasks, syncEmails]);
 
   return (
     <div className="container mx-auto py-6 px-4 max-w-6xl">
