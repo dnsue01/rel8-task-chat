@@ -1,4 +1,3 @@
-
 import { supabase } from "../supabase/client";
 import { getGoogleAccessToken } from "./googleAuth";
 import { CalendarEvent, Email, Task, TaskList, Contact } from "@/types/integrations";
@@ -361,5 +360,48 @@ const parseGmailMessage = (message: any): Email | null => {
   } catch (error) {
     console.error('Error parsing Gmail message:', error);
     return null;
+  }
+};
+
+/**
+ * Function to fetch calendar events with classification based on event content
+ * @returns Promise with classified calendar events
+ */
+export const fetchClassifiedCalendarEvents = async (contacts: any[] = []): Promise<any[]> => {
+  try {
+    const accessToken = getGoogleAccessToken();
+    if (!accessToken) {
+      throw new Error("No Google access token available");
+    }
+
+    // Call our Supabase Edge Function with the access token and our contacts
+    // to classify events and match them with contacts
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-oauth`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({
+          access_token: accessToken,
+          endpoint: "classified_calendar",
+          contact_ids: contacts
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Error fetching classified calendar events:", errorData);
+      throw new Error(`Error fetching classified calendar data: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.events || [];
+  } catch (error) {
+    console.error("Error in fetchClassifiedCalendarEvents:", error);
+    throw error;
   }
 };

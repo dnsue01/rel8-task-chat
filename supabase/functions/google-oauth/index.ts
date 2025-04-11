@@ -15,7 +15,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { access_token, endpoint, message_id, task_list_id, person_id } = body;
+    const { access_token, endpoint, message_id, task_list_id, person_id, contact_ids } = body;
 
     if (!access_token) {
       return new Response(
@@ -38,6 +38,19 @@ serve(async (req) => {
               "?maxResults=20" +
               "&timeMin=" + encodeURIComponent(today.toISOString()) + 
               "&timeMax=" + encodeURIComponent(thirtyDaysLater.toISOString()) +
+              "&singleEvents=true" +
+              "&orderBy=startTime";
+        break;
+      case "classified_calendar":
+        // Get calendar events for the next 30 days (for classification)
+        const currentDate = new Date();
+        const endDate = new Date(currentDate);
+        endDate.setDate(currentDate.getDate() + 30);
+        
+        url = "https://www.googleapis.com/calendar/v3/calendars/primary/events" + 
+              "?maxResults=50" +
+              "&timeMin=" + encodeURIComponent(currentDate.toISOString()) + 
+              "&timeMax=" + encodeURIComponent(endDate.toISOString()) +
               "&singleEvents=true" +
               "&orderBy=startTime";
         break;
@@ -116,6 +129,116 @@ serve(async (req) => {
       );
     }
 
+    // If this is a calendar request with classification, process the events
+    if (endpoint === "classified_calendar" && contact_ids) {
+      // Function to classify an event based on its title and description
+      const classifyEvent = (title = "", description = "") => {
+        title = title.toLowerCase();
+        description = description ? description.toLowerCase() : "";
+        const content = title + " " + description;
+        
+        // Event keywords
+        if (content.match(/reunión|evento|cumpleaños|actividad|celebración|fiesta|conferencia|seminario|taller/i)) {
+          return "Evento";
+        }
+        
+        // Task keywords
+        if (content.match(/hacer|pendiente|terminar|entregar|tarea|completar|finalizar|deadline/i)) {
+          return "Tarea";
+        }
+        
+        // Appointment keywords
+        if (content.match(/cita|doctor|psicólogo|entrevista|consulta|médico|dental|dentista|terapia/i)) {
+          return "Agenda de citas";
+        }
+        
+        // Default classification
+        return "Evento";
+      };
+
+      // Function to find a matching contact
+      const findMatchingContact = (event, contacts) => {
+        // Parse contacts from the provided JSON string
+        const contactsList = typeof contacts === 'string' ? JSON.parse(contacts) : contacts;
+        
+        if (!contactsList || contactsList.length === 0) {
+          return null;
+        }
+        
+        // Extract event information
+        const title = event.summary || "";
+        const description = event.description || "";
+        const attendees = event.attendees || [];
+        const attendeeEmails = attendees.map(attendee => attendee.email);
+        
+        // Try to match by email
+        for (const attendeeEmail of attendeeEmails) {
+          const contactByEmail = contactsList.find(
+            contact => contact.email && contact.email.toLowerCase() === attendeeEmail.toLowerCase()
+          );
+          
+          if (contactByEmail) {
+            return {
+              id: contactByEmail.id,
+              nombre: contactByEmail.name,
+              email: contactByEmail.email,
+              match_type: "email"
+            };
+          }
+        }
+        
+        // Try to match by name in title
+        for (const contact of contactsList) {
+          if (contact.name && title.toLowerCase().includes(contact.name.toLowerCase())) {
+            return {
+              id: contact.id,
+              nombre: contact.name,
+              email: contact.email,
+              match_type: "name"
+            };
+          }
+        }
+        
+        // Try to match by phone number in description
+        for (const contact of contactsList) {
+          if (contact.phone && description.includes(contact.phone)) {
+            return {
+              id: contact.id,
+              nombre: contact.name,
+              email: contact.email,
+              match_type: "phone"
+            };
+          }
+        }
+        
+        return null;
+      };
+
+      // Process and classify the calendar events
+      const classifiedEvents = data.items.map(event => {
+        const eventType = classifyEvent(event.summary, event.description);
+        const contactMatch = findMatchingContact(event, contact_ids);
+        
+        return {
+          id: event.id,
+          tipo: eventType,
+          titulo: event.summary || "Sin título",
+          fecha: event.start?.dateTime || event.start?.date,
+          hora_fin: event.end?.dateTime || event.end?.date,
+          participantes: (event.attendees || []).map(attendee => attendee.email),
+          descripcion: event.description || "",
+          contacto_vinculado: contactMatch,
+          event_data: event // Include the full event data for reference
+        };
+      });
+      
+      return new Response(
+        JSON.stringify({ events: classifiedEvents }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // For standard requests, just return the data
     return new Response(
       JSON.stringify(data),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

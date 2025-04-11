@@ -1,10 +1,9 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { CalendarEvent, Email, GoogleAuthConfig, IntegrationSyncState, MatchResult, Task, TaskList, Contact } from "../types/integrations";
 import { useCrm } from "./CrmContext";
 import { googleClient } from "../integrations/google/googleClient";
 import { parseISO } from "date-fns";
-import { fetchCalendarEvents, fetchContacts, fetchEmails, fetchTaskLists, fetchTasks } from "../integrations/google/googleApi";
+import { fetchCalendarEvents, fetchContacts, fetchEmails, fetchTaskLists, fetchTasks, fetchClassifiedCalendarEvents } from "../integrations/google/googleApi";
 
 interface IntegrationsContextType {
   // Google
@@ -40,6 +39,10 @@ interface IntegrationsContextType {
   
   // Sync state
   syncState: IntegrationSyncState;
+  
+  // Classified calendar functionality
+  classifiedEvents: any[];
+  fetchClassifiedEvents: () => Promise<void>;
 }
 
 const IntegrationsContext = createContext<IntegrationsContextType>({} as IntegrationsContextType);
@@ -53,10 +56,10 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [taskLists, setTaskLists] = useState<TaskList[]>([]);
   const [syncState, setSyncState] = useState<IntegrationSyncState>({});
+  const [classifiedEvents, setClassifiedEvents] = useState<any[]>([]);
   
   const { notes } = useCrm();
   
-  // Load integration data from localStorage when the app starts
   useEffect(() => {
     const savedGoogleConfig = localStorage.getItem('google_auth_config');
     const savedCalendarEvents = localStorage.getItem('google_calendar_events');
@@ -107,18 +110,15 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   }, []);
   
-  // Check Google connection status
   useEffect(() => {
     const isConnected = googleClient.isConnected();
     setIsGoogleConnected(isConnected);
   }, [googleConfig]);
   
-  // Connect to Google Calendar
   const connectGoogleCalendar = async (): Promise<void> => {
     try {
       const result = await googleClient.initiateGoogleAuth();
       if (result.success && result.data) {
-        // Real auth config from Google
         const newConfig = {
           accessToken: result.data.accessToken,
           refreshToken: 'not_implemented',
@@ -129,11 +129,9 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         setGoogleConfig(newConfig);
         localStorage.setItem('google_auth_config', JSON.stringify(newConfig));
         
-        // Also store a flag to indicate connection status
         localStorage.setItem('google_connected', 'true');
         setIsGoogleConnected(true);
         
-        // After connecting, sync data
         await Promise.all([
           syncCalendarEvents(),
           syncEmails(),
@@ -147,12 +145,10 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
   
-  // Disconnect from Google
   const disconnectGoogleCalendar = async (): Promise<void> => {
     try {
       await googleClient.disconnectGoogle();
       
-      // Clear saved data
       localStorage.removeItem('google_auth_config');
       localStorage.removeItem('google_auth_token');
       localStorage.removeItem('google_calendar_events');
@@ -163,7 +159,6 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       localStorage.removeItem('google_auth_expiry');
       localStorage.removeItem('google_contacts');
       
-      // Reset state
       setGoogleConfig(null);
       setCalendarEvents([]);
       setEmails([]);
@@ -177,18 +172,13 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
   
-  // Sync calendar events
   const syncCalendarEvents = async (): Promise<void> => {
     try {
       const events = await fetchCalendarEvents();
       
-      // Set the events
       setCalendarEvents(events);
-      
-      // Save to localStorage
       localStorage.setItem('google_calendar_events', JSON.stringify(events));
       
-      // Update sync state
       const newSyncState = { ...syncState, lastCalendarSync: new Date() };
       setSyncState(newSyncState);
       localStorage.setItem('integration_sync_state', JSON.stringify(newSyncState));
@@ -198,18 +188,13 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
 
-  // Sync contacts
   const syncContacts = async (): Promise<void> => {
     try {
       const googleContacts = await fetchContacts();
       
-      // Set the contacts
       setContacts(googleContacts);
-      
-      // Save to localStorage
       localStorage.setItem('google_contacts', JSON.stringify(googleContacts));
       
-      // Update sync state
       const newSyncState = { ...syncState, lastContactsSync: new Date() };
       setSyncState(newSyncState);
       localStorage.setItem('integration_sync_state', JSON.stringify(newSyncState));
@@ -219,17 +204,13 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
 
-  // Sync tasks
   const syncTasks = async (): Promise<void> => {
     try {
-      // First fetch task lists
       const taskListsResult = await fetchTaskLists();
       
-      // Save task lists
       setTaskLists(taskListsResult);
       localStorage.setItem('google_task_lists', JSON.stringify(taskListsResult));
       
-      // Now fetch tasks for each list
       const allTasks: Task[] = [];
       
       for (const list of taskListsResult) {
@@ -238,15 +219,12 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           allTasks.push(...listTasks);
         } catch (err) {
           console.error(`Error fetching tasks for list ${list.id}:`, err);
-          // Continue with other lists even if one fails
         }
       }
       
-      // Save all tasks
       setTasks(allTasks);
       localStorage.setItem('google_tasks', JSON.stringify(allTasks));
       
-      // Update sync state
       const newSyncState = { ...syncState, lastTasksSync: new Date() };
       setSyncState(newSyncState);
       localStorage.setItem('integration_sync_state', JSON.stringify(newSyncState));
@@ -256,18 +234,13 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
   
-  // Sync emails
   const syncEmails = async (): Promise<void> => {
     try {
       const emailList = await fetchEmails();
       
-      // Set the emails
       setEmails(emailList);
-      
-      // Save to localStorage
       localStorage.setItem('google_emails', JSON.stringify(emailList));
       
-      // Update sync state
       const newSyncState = { ...syncState, lastEmailSync: new Date() };
       setSyncState(newSyncState);
       localStorage.setItem('integration_sync_state', JSON.stringify(newSyncState));
@@ -277,7 +250,6 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
   
-  // Get events for a specific date
   const getEventsForDate = (date: Date): CalendarEvent[] => {
     return calendarEvents.filter(event => {
       const eventDate = new Date(event.startTime);
@@ -287,7 +259,6 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     });
   };
   
-  // Get emails for a specific date
   const getEmailsForDate = (date: Date): Email[] => {
     return emails.filter(email => {
       const emailDate = new Date(email.receivedAt);
@@ -297,7 +268,6 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     });
   };
   
-  // Link a note to an event
   const linkNoteToEvent = (noteId: string, eventId: string): void => {
     const updatedEvents = calendarEvents.map(event => {
       if (event.id === eventId) {
@@ -310,7 +280,6 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     localStorage.setItem('google_calendar_events', JSON.stringify(updatedEvents));
   };
   
-  // Link a note to a task
   const linkNoteToTask = (noteId: string, taskId: string): void => {
     const updatedTasks = tasks.map(task => {
       if (task.id === taskId) {
@@ -323,7 +292,6 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     localStorage.setItem('google_tasks', JSON.stringify(updatedTasks));
   };
   
-  // Link an email to a note
   const linkEmailToNote = (noteId: string, emailId: string): void => {
     const updatedEmails = emails.map(email => {
       if (email.id === emailId) {
@@ -336,18 +304,15 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     localStorage.setItem('google_emails', JSON.stringify(updatedEmails));
   };
   
-  // Find potential matches between notes and events/emails
   const findMatchesForNote = (noteId: string): MatchResult[] => {
     const note = notes.find(n => n.id === noteId);
     if (!note) return [];
     
     const matches: MatchResult[] = [];
     
-    // Look for matches in events
     calendarEvents.forEach(event => {
       let confidence = 0;
       
-      // Simple matching logic (in a real app, this would be more sophisticated)
       if (event.title && note.content.includes(event.title)) {
         confidence += 40;
       }
@@ -364,11 +329,9 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
     });
     
-    // Look for matches in tasks
     tasks.forEach(task => {
       let confidence = 0;
       
-      // Simple matching logic
       if (task.title && note.content.includes(task.title)) {
         confidence += 40;
       }
@@ -385,22 +348,18 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
     });
     
-    // Sort by confidence
     return matches.sort((a, b) => b.confidence - a.confidence);
   };
   
-  // Find potential matches for an email
   const findMatchesForEmail = (emailId: string): MatchResult[] => {
     const email = emails.find(e => e.id === emailId);
     if (!email) return [];
     
     const matches: MatchResult[] = [];
     
-    // Look for matches in notes
     notes.forEach(note => {
       let confidence = 0;
       
-      // Simple matching logic
       if (note.content.includes(email.subject)) {
         confidence += 40;
       }
@@ -414,16 +373,13 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
     });
     
-    // Look for matches in events
     calendarEvents.forEach(event => {
       let confidence = 0;
       
-      // Simple matching logic
       if (event.title && event.title.includes(email.subject)) {
         confidence += 30;
       }
       
-      // Check if email was received close to event time
       const emailTime = new Date(email.receivedAt).getTime();
       const eventTime = new Date(event.startTime).getTime();
       const timeDiff = Math.abs(emailTime - eventTime);
@@ -442,8 +398,24 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
     });
     
-    // Sort by confidence
     return matches.sort((a, b) => b.confidence - a.confidence);
+  };
+  
+  const fetchClassifiedEvents = async (): Promise<void> => {
+    try {
+      const events = await fetchClassifiedCalendarEvents(contacts);
+      
+      setClassifiedEvents(events);
+      
+      localStorage.setItem('google_classified_events', JSON.stringify(events));
+      
+      const newSyncState = { ...syncState, lastCalendarSync: new Date() };
+      setSyncState(newSyncState);
+      localStorage.setItem('integration_sync_state', JSON.stringify(newSyncState));
+    } catch (error) {
+      console.error('Error syncing classified calendar events:', error);
+      throw error;
+    }
   };
   
   return (
@@ -468,6 +440,8 @@ export const IntegrationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       findMatchesForNote,
       findMatchesForEmail,
       syncState,
+      classifiedEvents,
+      fetchClassifiedEvents,
     }}>
       {children}
     </IntegrationsContext.Provider>
