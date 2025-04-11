@@ -1,10 +1,10 @@
-
 import React, { useState } from "react";
 import { Menu, X, LogOut } from "lucide-react";
 import { useCrm } from "../../context/CrmContext";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import ContactSidebar from "@/components/sidebar/ContactSidebar";
 
 interface LayoutProps {
   children: React.ReactNode;

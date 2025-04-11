@@ -11,7 +11,7 @@ interface TaskBubbleProps {
 }
 
 const TaskBubble: React.FC<TaskBubbleProps> = ({ task }) => {
-  const { updateTaskStatus } = useCrm();
+  const { completeTask, reopenTask } = useCrm();
 
   const getBubbleClass = () => {
     switch (task.status) {
@@ -57,7 +57,11 @@ const TaskBubble: React.FC<TaskBubbleProps> = ({ task }) => {
   };
 
   const handleStatusChange = (newStatus: Task["status"]) => {
-    updateTaskStatus(task.id, newStatus);
+    if (newStatus === "done") {
+      completeTask(task.id);
+    } else {
+      reopenTask(task.id);
+    }
   };
 
   const formatTaskDate = (date?: Date) => {

@@ -1,6 +1,7 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { sample } from "../data/sampleData";
+import { sampleContacts, sampleTasks, sampleNotes } from "../data/sampleData";
 import { Contact, Task, Note, TaskStatus, TaskPriority, ContactStatus } from "../types";
 
 type CrmContextType = {
@@ -59,9 +60,9 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     } else {
       // Load sample data for demo if not logged in
-      setContacts(sample.contacts);
-      setTasks(sample.tasks);
-      setNotes(sample.notes);
+      setContacts(sampleContacts);
+      setTasks(sampleTasks);
+      setNotes(sampleNotes);
       setIsLoading(false);
     }
   }, []);

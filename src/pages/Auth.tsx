@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { At, KeyRound, ArrowRight, UserPlus, LogIn } from "lucide-react";
+import { AtSign, KeyRound, ArrowRight, UserPlus, LogIn } from "lucide-react";
 
 const Auth: React.FC = () => {
   const [email, setEmail] = useState("");
@@ -105,7 +105,7 @@ const Auth: React.FC = () => {
                   <div className="grid gap-2">
                     <Label htmlFor="email-login">Email</Label>
                     <div className="relative">
-                      <At className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                      <AtSign className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
                         id="email-login"
                         type="email"
@@ -157,7 +157,7 @@ const Auth: React.FC = () => {
                   <div className="grid gap-2">
                     <Label htmlFor="email-register">Email</Label>
                     <div className="relative">
-                      <At className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                      <AtSign className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
                         id="email-register"
                         type="email"

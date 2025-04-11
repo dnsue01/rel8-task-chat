@@ -141,3 +141,6 @@ export const sampleNotes: Note[] = [
     createdAt: new Date("2023-04-01T09:45:00"),
   },
 ];
+
+// Export as a group for convenience
+export { sampleContacts as contacts, sampleTasks as tasks, sampleNotes as notes };
