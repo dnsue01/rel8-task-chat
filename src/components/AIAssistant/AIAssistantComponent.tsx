@@ -9,6 +9,7 @@ import { useIntegrations } from '@/context/IntegrationsContext';
 const AIAssistantComponent: React.FC = () => {
   const [activeTab, setActiveTab] = useState("chat");
   const { calendarEvents, tasks, emails, syncCalendarEvents, syncTasks, syncEmails } = useIntegrations();
+  const [selectedPrompt, setSelectedPrompt] = useState<string | null>(null);
   const [templates, setTemplates] = useState([
     {
       id: 1,
@@ -81,13 +82,16 @@ const AIAssistantComponent: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {templates.map(template => (
               <div key={template.id} className="border rounded-lg p-6 bg-white shadow-sm">
-                <h3 className="text-lg font-medium mb-2">{template.title}</h3>
+                <div className="flex items-center mb-2">
+                  {template.icon}
+                  <h3 className="text-lg font-medium">{template.title}</h3>
+                </div>
                 <p className="text-gray-500 mb-4">{template.description}</p>
                 <Button 
                   variant="outline"
                   onClick={() => {
                     setActiveTab("chat");
-                    // Aquí podríamos pasar el prompt preseleccionado a ChatInterface
+                    setSelectedPrompt(template.prompt);
                   }}
                 >
                   Usar plantilla

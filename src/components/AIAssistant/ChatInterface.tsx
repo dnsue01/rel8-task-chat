@@ -2,11 +2,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Send, Loader2 } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { useIntegrations } from '@/context/IntegrationsContext';
+import { useCrm } from '@/context/CrmContext';
 
 interface Message {
   id: string;
@@ -21,6 +21,7 @@ const ChatInterface: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { calendarEvents, tasks, emails, taskLists } = useIntegrations();
+  const { contacts, tasks: crmTasks, notes } = useCrm();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -30,7 +31,7 @@ const ChatInterface: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
-  // Function to prepare context for the AI
+  // Function to prepare comprehensive context for the AI
   const prepareContextForAI = () => {
     let context = '';
     
@@ -44,9 +45,9 @@ const ChatInterface: React.FC = () => {
       context += '\n';
     }
     
-    // Add tasks context
+    // Add Google tasks context
     if (tasks && tasks.length > 0) {
-      context += 'Tus tareas pendientes:\n';
+      context += 'Tus tareas de Google:\n';
       const pendingTasks = tasks.filter(task => task.status === 'needsAction');
       pendingTasks.slice(0, 5).forEach(task => {
         context += `- ${task.title}\n`;
@@ -56,7 +57,7 @@ const ChatInterface: React.FC = () => {
     
     // Add task lists if available
     if (taskLists && taskLists.length > 0) {
-      context += 'Tus listas de tareas:\n';
+      context += 'Tus listas de tareas en Google:\n';
       taskLists.slice(0, 3).forEach(list => {
         context += `- ${list.title}\n`;
       });
@@ -69,6 +70,39 @@ const ChatInterface: React.FC = () => {
       emails.slice(0, 3).forEach(email => {
         const date = new Date(email.receivedAt).toLocaleDateString();
         context += `- De: ${email.sender}, Asunto: "${email.subject}" (${date})\n`;
+      });
+      context += '\n';
+    }
+    
+    // Add CRM contacts context
+    if (contacts && contacts.length > 0) {
+      context += 'Tus contactos en el CRM:\n';
+      contacts.slice(0, 5).forEach(contact => {
+        context += `- ${contact.name} (${contact.status})`;
+        if (contact.company) context += ` en ${contact.company}`;
+        context += '\n';
+      });
+      context += '\n';
+    }
+    
+    // Add CRM tasks context
+    if (crmTasks && crmTasks.length > 0) {
+      context += 'Tus tareas en el CRM:\n';
+      const pendingCrmTasks = crmTasks.filter(task => !task.completed);
+      pendingCrmTasks.slice(0, 5).forEach(task => {
+        const contactName = contacts.find(c => c.id === task.contactId)?.name || 'Sin contacto';
+        context += `- ${task.title} (${task.priority}, para ${contactName})\n`;
+      });
+      context += '\n';
+    }
+    
+    // Add notes context
+    if (notes && notes.length > 0) {
+      context += 'Tus notas recientes:\n';
+      notes.slice(0, 5).forEach(note => {
+        const contactName = contacts.find(c => c.id === note.contactId)?.name || 'Sin contacto';
+        const shortContent = note.content.length > 50 ? note.content.substring(0, 50) + '...' : note.content;
+        context += `- Nota para ${contactName}: ${shortContent}\n`;
       });
     }
     
@@ -91,7 +125,7 @@ const ChatInterface: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // Prepare context
+      // Prepare comprehensive context
       const context = prepareContextForAI();
       
       // Call the Edge Function of Supabase to process the message

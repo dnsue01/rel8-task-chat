@@ -32,9 +32,15 @@ serve(async (req) => {
       );
     }
 
-    // Prepare messages for OpenAI
+    // Create a more comprehensive system prompt with the context
     const systemMessage = context 
-      ? `Eres un asistente de IA para un CRM. Aquí está el contexto del usuario: ${context}`
+      ? `Eres un asistente de IA para un CRM con integración a Google Calendar, Gmail y Google Tasks. 
+      
+Aquí está el contexto actual del usuario:
+
+${context}
+
+Usa esta información para proporcionar respuestas útiles y contextualizadas. Puedes referirte a los contactos, tareas, eventos y correos mencionados en el contexto cuando sea relevante para la consulta del usuario.`
       : "Eres un asistente de IA para un CRM. Proporciona respuestas útiles y concisas.";
     
     // Format previous messages for OpenAI context
@@ -57,11 +63,11 @@ serve(async (req) => {
     formattedMessages.push({ role: "user", content: prompt });
     
     console.log("Sending request to OpenAI with context:", { 
-      systemMessage, 
+      contextLength: context?.length || 0, 
       messagesCount: formattedMessages.length 
     });
 
-    // Call OpenAI API
+    // Call OpenAI API with the upgraded model
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -69,7 +75,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-3.5-turbo", // Using a more affordable model, can be upgraded to gpt-4o
+        model: "gpt-4o-mini", // Using a more capable model for better context handling
         messages: formattedMessages,
         temperature: 0.7,
         max_tokens: 800,
