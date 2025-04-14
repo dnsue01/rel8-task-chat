@@ -801,3 +801,13 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, notes, onLinkNote }) => {
                 </Command>
           </PopoverContent>
             </Popover>
+     ) : (
+            <span className="text-sm text-gray-500">Sin contactos disponibles</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default TaskCard;
