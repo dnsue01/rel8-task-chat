@@ -3,9 +3,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, UserPlus, User } from "lucide-react";
+import { Search, UserPlus, User, Import } from "lucide-react";
 import { useCrm } from "../../context/CrmContext";
 import NewContactForm from "./NewContactForm";
+import ImportContactsDialog from "./ImportContactsDialog";
 import { Contact } from "@/types";
 
 interface ContactSelectionDialogProps {
@@ -17,6 +18,7 @@ const ContactSelectionDialog: React.FC<ContactSelectionDialogProps> = ({ isOpen,
   const { contacts, setActiveContactId, addToRecentContacts } = useCrm();
   const [searchTerm, setSearchTerm] = useState("");
   const [isNewContactDialogOpen, setIsNewContactDialogOpen] = useState(false);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
 
   const filteredContacts = contacts.filter(contact =>
     contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -57,11 +59,20 @@ const ContactSelectionDialog: React.FC<ContactSelectionDialogProps> = ({ isOpen,
 
           <Button
             variant="outline"
-            className="w-full mb-4 justify-start"
+            className="w-full mb-2 justify-start"
             onClick={() => setIsNewContactDialogOpen(true)}
           >
             <UserPlus className="mr-2 h-4 w-4" />
             Crear nuevo contacto
+          </Button>
+
+          <Button
+            variant="outline"
+            className="w-full mb-4 justify-start"
+            onClick={() => setIsImportDialogOpen(true)}
+          >
+            <Import className="mr-2 h-4 w-4" />
+            Importar contactos
           </Button>
 
           <ScrollArea className="max-h-[300px] pr-2">
@@ -103,6 +114,15 @@ const ContactSelectionDialog: React.FC<ContactSelectionDialogProps> = ({ isOpen,
             <NewContactForm onSuccess={handleNewContactSuccess} />
           </DialogContent>
         </Dialog>
+      )}
+
+      {isImportDialogOpen && (
+        <ImportContactsDialog
+          onSuccess={() => {
+            setIsImportDialogOpen(false);
+            onOpenChange(false);
+          }}
+        />
       )}
     </>
   );
