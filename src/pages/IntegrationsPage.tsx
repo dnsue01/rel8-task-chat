@@ -287,7 +287,7 @@ const IntegrationsPage: React.FC = () => {
             <div className="md:flex">
               <div className="md:w-1/2 p-6">
                 <h2 className="text-xl font-bold mb-3">¿Por qué conectar Google?</h2>
-                <ul className="space-y-3">
+                <ul className="space-y-3">\
                   <li className="flex items-start">
                     <ChevronRight className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
                     <span>Sincroniza tu <strong>calendario</strong> y mantén tus eventos organizados</span>
@@ -798,16 +798,4 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, notes, onLinkNote }) => {
                       ))}
                     </CommandGroup>
                   </CommandList>
-                </Command>
-          </PopoverContent>
-            </Popover>
-     ) : (
-            <span className="text-sm text-gray-500">Sin contactos disponibles</span>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default TaskCard;
+                </Command
