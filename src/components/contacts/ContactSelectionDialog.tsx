@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -101,7 +100,11 @@ const ContactSelectionDialog: React.FC<ContactSelectionDialogProps> = ({ isOpen,
         trigger={null}
         isOpen={isNewContactDialogOpen}
         onOpenChange={setIsNewContactDialogOpen}
-        onSuccess={handleNewContactSuccess}
+        onSuccess={() => {
+          if (activeContactId) {
+            handleNewContactSuccess(activeContactId);
+          }
+        }}
       />
     </>
   );
