@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -44,7 +43,7 @@ const ContactSelectionDialog: React.FC<ContactSelectionDialogProps> = ({ isOpen,
           <DialogHeader>
             <DialogTitle>Iniciar nueva conversación</DialogTitle>
           </DialogHeader>
-          
+
           <div className="relative mb-4 mt-4">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
             <Input
@@ -55,16 +54,16 @@ const ContactSelectionDialog: React.FC<ContactSelectionDialogProps> = ({ isOpen,
               autoFocus
             />
           </div>
-          
-          <Button 
-            variant="outline" 
-            className="w-full mb-4 justify-start" 
+
+          <Button
+            variant="outline"
+            className="w-full mb-4 justify-start"
             onClick={() => setIsNewContactDialogOpen(true)}
           >
             <UserPlus className="mr-2 h-4 w-4" />
             Crear nuevo contacto
           </Button>
-          
+
           <ScrollArea className="max-h-[300px] pr-2">
             {filteredContacts.length > 0 ? (
               <div className="space-y-2">
@@ -94,12 +93,17 @@ const ContactSelectionDialog: React.FC<ContactSelectionDialogProps> = ({ isOpen,
           </ScrollArea>
         </DialogContent>
       </Dialog>
-      
-      <NewContactForm
-        isOpen={isNewContactDialogOpen}
-        onOpenChange={setIsNewContactDialogOpen}
-        onSuccess={handleNewContactSuccess}
-      />
+
+      {isNewContactDialogOpen && (
+        <Dialog open={isNewContactDialogOpen} onOpenChange={setIsNewContactDialogOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Nuevo contacto</DialogTitle>
+            </DialogHeader>
+            <NewContactForm onSuccess={handleNewContactSuccess} />
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 };
