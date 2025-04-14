@@ -49,7 +49,9 @@ const TasksPage: React.FC = () => {
           <TabsContent value="pending" className="space-y-4">
             {showNewTaskForm && (
               <div className="mb-4">
-                <NewTaskForm onSuccess={() => setShowNewTaskForm(false)} />
+                <NewTaskForm 
+                  onSuccess={() => setShowNewTaskForm(false)} 
+                />
               </div>
             )}
 

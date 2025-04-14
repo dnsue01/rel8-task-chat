@@ -3,32 +3,94 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, Loader2 } from "lucide-react";
+import { Send, Loader2, Trash2 } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { useIntegrations } from '@/context/IntegrationsContext';
 import { useCrm } from '@/context/CrmContext';
 import { format } from 'date-fns';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger
+} from "@/components/ui/alert-dialog";
 
 interface Message {
   id: string;
   sender: 'user' | 'ai';
   text: string;
   timestamp: Date;
+  contactId?: string;
 }
 
 interface ChatInterfaceProps {
   initialPrompt?: string | null;
   onPromptProcessed?: () => void;
+  contactId?: string | null;
 }
 
-const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialPrompt = null, onPromptProcessed }) => {
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialPrompt = null, onPromptProcessed, contactId }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { calendarEvents, tasks, emails, taskLists } = useIntegrations();
-  const { contacts, tasks: crmTasks, notes } = useCrm();
+  const { contacts, tasks: crmTasks, notes, getContactById } = useCrm();
   const initialPromptProcessedRef = useRef(false);
+
+  const storageKey = contactId 
+    ? `chat_history_${contactId}` 
+    : 'chat_history_global';
+
+  // Load chat history when component mounts or contactId changes
+  useEffect(() => {
+    loadChatHistory();
+  }, [contactId]);
+
+  const saveChatHistory = (messageList: Message[]) => {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(messageList));
+    } catch (error) {
+      console.error('Error saving chat history:', error);
+    }
+  };
+
+  const loadChatHistory = () => {
+    try {
+      const savedHistory = localStorage.getItem(storageKey);
+      if (savedHistory) {
+        const parsedHistory: Message[] = JSON.parse(savedHistory);
+        // Convert timestamp strings back to Date objects
+        const processedHistory = parsedHistory.map(msg => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp)
+        }));
+        setMessages(processedHistory);
+      } else {
+        // No history found for this contact, start fresh
+        setMessages([]);
+      }
+    } catch (error) {
+      console.error('Error loading chat history:', error);
+      setMessages([]);
+    }
+  };
+
+  const clearChatHistory = () => {
+    try {
+      localStorage.removeItem(storageKey);
+      setMessages([]);
+      setClearDialogOpen(false);
+    } catch (error) {
+      console.error('Error clearing chat history:', error);
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -36,6 +98,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialPrompt = null, onP
 
   useEffect(() => {
     scrollToBottom();
+    // Save messages to localStorage whenever they change
+    if (messages.length > 0) {
+      saveChatHistory(messages);
+    }
   }, [messages]);
 
   // Process initial prompt if provided
@@ -54,6 +120,38 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialPrompt = null, onP
   // Function to prepare comprehensive context for the AI
   const prepareContextForAI = () => {
     let context = '';
+    
+    // Add contact specific information if a contact is selected
+    if (contactId) {
+      const contact = getContactById(contactId);
+      if (contact) {
+        context += `Estás conversando con el contacto: ${contact.name}\n`;
+        if (contact.email) context += `Email: ${contact.email}\n`;
+        if (contact.phone) context += `Teléfono: ${contact.phone}\n`;
+        if (contact.company) context += `Empresa: ${contact.company}\n`;
+        context += `Rol: ${contact.status}\n\n`;
+        
+        // Add notes for this contact
+        const contactNotes = notes.filter(note => note.contactId === contactId);
+        if (contactNotes.length > 0) {
+          context += 'Notas para este contacto:\n';
+          contactNotes.forEach(note => {
+            context += `- ${format(note.createdAt, 'dd/MM/yyyy')}: ${note.content}\n`;
+          });
+          context += '\n';
+        }
+        
+        // Add tasks for this contact
+        const contactTasks = crmTasks.filter(task => task.contactId === contactId);
+        if (contactTasks.length > 0) {
+          context += 'Tareas para este contacto:\n';
+          contactTasks.forEach(task => {
+            context += `- ${task.title} (${task.completed ? 'Completada' : 'Pendiente'})\n`;
+          });
+          context += '\n';
+        }
+      }
+    }
     
     // Add calendar events context
     if (calendarEvents && calendarEvents.length > 0) {
@@ -149,6 +247,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialPrompt = null, onP
       sender: 'user',
       text: messageText,
       timestamp: new Date(),
+      contactId: contactId || undefined
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -178,6 +277,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialPrompt = null, onP
         sender: 'ai',
         text: response.data.text || 'Lo siento, no pude procesar tu solicitud.',
         timestamp: new Date(),
+        contactId: contactId || undefined
       };
 
       setMessages(prev => [...prev, aiMessage]);
@@ -190,6 +290,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialPrompt = null, onP
         sender: 'ai',
         text: 'Lo siento, ocurrió un error al procesar tu mensaje. Por favor, intenta nuevamente.',
         timestamp: new Date(),
+        contactId: contactId || undefined
       };
 
       setMessages(prev => [...prev, errorMessage]);
@@ -198,8 +299,40 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ initialPrompt = null, onP
     }
   };
 
+  const contactName = contactId ? getContactById(contactId)?.name : 'Global';
+
   return (
     <div className="flex flex-col h-[calc(100vh-230px)] sm:h-[70vh] border rounded-lg bg-white shadow-sm">
+      <div className="border-b p-3 flex justify-between items-center">
+        <h3 className="font-medium text-sm">
+          {contactId ? `Chat con ${contactName}` : 'Chat global'}
+        </h3>
+        {messages.length > 0 && (
+          <AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 gap-1">
+                <Trash2 className="h-4 w-4" />
+                <span className="sr-only sm:not-sr-only">Borrar historial</span>
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Borrar historial de chat</AlertDialogTitle>
+                <AlertDialogDescription>
+                  ¿Estás seguro de que deseas borrar todo el historial de este chat? Esta acción no se puede deshacer.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={clearChatHistory} className="bg-red-600 hover:bg-red-700">
+                  Borrar historial
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
+      </div>
+
       <ScrollArea className="flex-1 p-4">
         <div className="space-y-4">
           {messages.length === 0 ? (

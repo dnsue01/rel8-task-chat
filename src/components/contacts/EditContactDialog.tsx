@@ -75,8 +75,22 @@ const EditContactDialog: React.FC<EditContactDialogProps> = ({ contact, trigger,
     if (onSuccess) onSuccess();
   };
 
+  // Handle closing manually to prevent automatic closure
+  const handleOpenChange = (newOpen: boolean) => {
+    if (open && !newOpen) {
+      // Only allow closing via the cancel button or save changes
+      // This prevents closing when clicking outside or pressing escape
+      return;
+    }
+    setOpen(newOpen);
+  };
+
+  const handleCancel = () => {
+    setOpen(false);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         {trigger || (
           <Button variant="outline" size="sm">
@@ -84,7 +98,7 @@ const EditContactDialog: React.FC<EditContactDialogProps> = ({ contact, trigger,
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px]" onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>Editar Contacto</DialogTitle>
         </DialogHeader>
@@ -142,33 +156,8 @@ const EditContactDialog: React.FC<EditContactDialogProps> = ({ contact, trigger,
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Rol</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccione un rol" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="lead">Lead</SelectItem>
-                      <SelectItem value="client">Cliente</SelectItem>
-                      <SelectItem value="collaborator">Colaborador</SelectItem>
-                      <SelectItem value="personal">Personal</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
             <div className="flex justify-end gap-2 pt-4">
-              <DialogClose asChild>
-                <Button type="button" variant="outline">Cancelar</Button>
-              </DialogClose>
+              <Button type="button" variant="outline" onClick={handleCancel}>Cancelar</Button>
               <Button type="submit">Guardar Cambios</Button>
             </div>
           </form>

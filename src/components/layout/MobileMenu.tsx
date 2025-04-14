@@ -3,17 +3,17 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
-  Home,
   User,
   Calendar,
   MessageSquare,
   Settings,
   X,
-  Mail,
-  LogOut
+  LogOut,
+  CheckCircle2
 } from "lucide-react";
 import { useCrm } from "../../context/CrmContext";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { useIntegrations } from "../../context/IntegrationsContext";
 
 interface MobileMenuProps {
   isOpen: boolean;
@@ -23,6 +23,7 @@ interface MobileMenuProps {
 const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
   const { logout } = useCrm();
+  const { isGoogleConnected } = useIntegrations();
 
   const handleNavigation = (path: string) => {
     navigate(path);
@@ -34,8 +35,6 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose }) => {
     navigate("/auth");
     onClose();
   };
-
-  if (!isOpen) return null;
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -57,27 +56,31 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose }) => {
             <Button
               variant="ghost"
               className="w-full justify-start"
-              onClick={() => handleNavigation("/")}
-            >
-              <Home className="mr-2 h-4 w-4" /> Inicio
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start"
               onClick={() => handleNavigation("/app")}
             >
               <User className="mr-2 h-4 w-4" /> Contactos
             </Button>
             <Button
               variant="ghost"
-              className="w-full justify-start"
+              className="w-full justify-start truncate"
               onClick={() => handleNavigation("/integrations")}
             >
               <div className="flex mr-2">
                 <Calendar className="h-4 w-4" />
-                <Mail className="h-4 w-4 -ml-1" />
+                {isGoogleConnected ? (
+                  <div className="h-2 w-2 bg-green-500 rounded-full absolute ml-3 mt-3"></div>
+                ) : (
+                  <div className="h-2 w-2 bg-red-500 rounded-full absolute ml-3 mt-3"></div>
+                )}
               </div>
-              Integraciones
+              <span className="truncate">Integraciones</span>
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full justify-start"
+              onClick={() => handleNavigation("/tasks")}
+            >
+              <CheckCircle2 className="mr-2 h-4 w-4" /> Tareas
             </Button>
             <Button
               variant="ghost"

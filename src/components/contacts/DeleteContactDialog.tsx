@@ -44,8 +44,22 @@ const DeleteContactDialog: React.FC<DeleteContactDialogProps> = ({
     if (onSuccess) onSuccess();
   };
 
+  // Handle closing manually to prevent automatic closure
+  const handleOpenChange = (newOpen: boolean) => {
+    if (open && !newOpen) {
+      // Only allow closing via the cancel button or delete button
+      // This prevents closing when clicking outside or pressing escape
+      return;
+    }
+    setOpen(newOpen);
+  };
+  
+  const handleCancel = () => {
+    setOpen(false);
+  };
+
   return (
-    <AlertDialog open={open} onOpenChange={setOpen}>
+    <AlertDialog open={open} onOpenChange={handleOpenChange}>
       <AlertDialogTrigger asChild>
         {trigger || (
           <Button variant="destructive" size="sm">
@@ -53,7 +67,7 @@ const DeleteContactDialog: React.FC<DeleteContactDialogProps> = ({
           </Button>
         )}
       </AlertDialogTrigger>
-      <AlertDialogContent>
+      <AlertDialogContent onPointerDownOutside={(e) => e.preventDefault()}>
         <AlertDialogHeader>
           <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
           <AlertDialogDescription>
@@ -62,10 +76,14 @@ const DeleteContactDialog: React.FC<DeleteContactDialogProps> = ({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-          <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+          <Button variant="outline" onClick={handleCancel}>Cancelar</Button>
+          <Button 
+            variant="destructive" 
+            onClick={handleDelete} 
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
             Eliminar
-          </AlertDialogAction>
+          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

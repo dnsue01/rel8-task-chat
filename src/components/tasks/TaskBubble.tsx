@@ -1,149 +1,170 @@
 
 import React, { useState } from "react";
-import { Task } from "../../types";
 import { useCrm } from "../../context/CrmContext";
-import { toast } from "sonner";
+import { Task } from "../../types";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Clock, Calendar, Flag, Pencil, Trash } from "lucide-react";
-import { formatDistanceToNow, format } from "date-fns";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
+import { MoreHorizontal, Edit, Trash2, Calendar } from "lucide-react";
+import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import EditTaskForm from "./EditTaskForm";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface TaskBubbleProps {
   task: Task;
 }
 
 const TaskBubble: React.FC<TaskBubbleProps> = ({ task }) => {
-  const { updateTask, deleteTask } = useCrm();
+  const { updateTask, deleteTask, getContactById } = useCrm();
   const [isEditing, setIsEditing] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const { toast } = useToast();
 
-  const handleToggleComplete = async () => {
-    try {
-      await updateTask({
-        ...task,
-        completed: !task.completed,
-        completedAt: !task.completed ? new Date() : undefined,
-      });
-      toast.success(
-        task.completed ? "Tarea marcada como pendiente" : "Tarea completada"
-      );
-    } catch (error) {
-      toast.error("Error al actualizar la tarea");
-    }
+  const contact = task.contactId ? getContactById(task.contactId) : null;
+
+  const handleCompletedChange = (checked: boolean) => {
+    updateTask(task.id, {
+      ...task,
+      completed: checked
+    });
   };
 
-  const handleDelete = async () => {
-    try {
-      await deleteTask(task.id);
-      toast.success("Tarea eliminada");
-    } catch (error) {
-      toast.error("Error al eliminar la tarea");
-    }
+  const handleDelete = () => {
+    deleteTask(task.id);
+    toast({
+      title: "Tarea eliminada",
+      description: "La tarea ha sido eliminada correctamente."
+    });
   };
 
-  const getPriorityColor = () => {
-    switch (task.priority) {
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
       case "high":
-        return "text-red-600";
+        return "bg-red-100 text-red-800 hover:bg-red-200 border-red-200";
       case "medium":
-        return "text-amber-500";
+        return "bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-200";
       case "low":
-        return "text-green-600";
+        return "bg-green-100 text-green-800 hover:bg-green-200 border-green-200";
       default:
-        return "text-gray-600";
+        return "bg-gray-100 text-gray-800 hover:bg-gray-200";
     }
   };
+
+  if (isEditing) {
+    return (
+      <EditTaskForm 
+        task={task} 
+        onCancel={() => setIsEditing(false)} 
+      />
+    );
+  }
 
   return (
     <>
-      {isEditing ? (
-        <EditTaskForm task={task} onCancel={() => setIsEditing(false)} />
-      ) : (
-        <div className="bg-white border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-start gap-3">
-            <Checkbox
-              checked={task.completed}
-              onCheckedChange={handleToggleComplete}
-              className="mt-1"
-            />
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <h3
-                  className={`font-medium ${
-                    task.completed ? "line-through text-gray-400" : ""
-                  }`}
-                >
-                  {task.title}
-                </h3>
-                
-                <div className="flex items-center gap-2 flex-wrap">
-                  {/* Status badge - show only if completed */}
-                  {task.completed && (
-                    <span className="bg-green-100 text-green-800 text-xs py-0.5 px-2 rounded-full">
-                      Completada
-                    </span>
-                  )}
-                  
-                  {/* Priority flag - separate from status */}
-                  {task.priority && (
-                    <div className="flex items-center">
-                      <Flag className={`h-3.5 w-3.5 ${getPriorityColor()}`} />
-                      <span className={`text-xs ${getPriorityColor()} ml-1`}>
-                        {task.priority === "high" && "Alta"}
-                        {task.priority === "medium" && "Media"}
-                        {task.priority === "low" && "Baja"}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {task.description && (
-                <p className="text-gray-600 text-sm mt-1 mb-2">{task.description}</p>
-              )}
-
-              <div className="flex items-center gap-3 mt-1 mb-2 flex-wrap">
-                {task.dueDate && (
-                  <span className="flex items-center text-xs text-gray-500">
-                    <Calendar className="h-3 w-3 mr-1" />
-                    {format(task.dueDate, "d MMM yyyy", { locale: es })}
-                  </span>
-                )}
-
-                <span className="flex items-center text-xs text-gray-500">
-                  <Clock className="h-3 w-3 mr-1" />
-                  {formatDistanceToNow(task.createdAt, {
-                    addSuffix: true,
-                    locale: es,
-                  })}
-                </span>
-              </div>
-
-              <div className="flex justify-end gap-2 mt-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsEditing(true)}
-                  className="h-8 px-2"
-                >
-                  <Pencil className="h-3.5 w-3.5 mr-1" />
-                  <span className="text-xs">Editar</span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleDelete}
-                  className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
-                >
-                  <Trash className="h-3.5 w-3.5 mr-1" />
-                  <span className="text-xs">Eliminar</span>
-                </Button>
-              </div>
+      <div className="border rounded-lg p-3 bg-white shadow-sm">
+        <div className="flex items-start gap-2">
+          <Checkbox 
+            checked={task.completed} 
+            onCheckedChange={handleCompletedChange} 
+            className="mt-1"
+          />
+          <div className="flex-1 min-w-0">
+            <div className="flex justify-between gap-2">
+              <h3 className={`font-medium ${task.completed ? 'line-through text-gray-400' : ''}`}>
+                {task.title}
+              </h3>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setIsEditing(true)}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Editar
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={() => setDeleteDialogOpen(true)}
+                    className="text-red-600"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Eliminar
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
+            {task.content && (
+              <p className={`text-sm ${task.completed ? 'text-gray-400' : 'text-gray-600'}`}>
+                {task.content}
+              </p>
+            )}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mt-2">
+              <div className="flex items-center">
+                <Badge className={`${getPriorityColor(task.priority)}`}>
+                  {task.priority === 'high' ? 'Alta' : task.priority === 'medium' ? 'Media' : 'Baja'}
+                </Badge>
+                
+                {task.completed && (
+                  <Badge variant="outline" className="ml-2 text-gray-500 border-gray-200">
+                    Completada
+                  </Badge>
+                )}
+              </div>
+              
+              {task.dueDate && (
+                <div className="flex items-center text-xs text-gray-500">
+                  <Calendar className="h-3 w-3 mr-1" />
+                  {format(task.dueDate, "d 'de' MMMM, yyyy", { locale: es })}
+                </div>
+              )}
+            </div>
+            {contact && (
+              <div className="mt-2">
+                <Badge variant="outline" className="text-xs">
+                  Contacto: {contact.name}
+                </Badge>
+              </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
+      
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción eliminará permanentemente la tarea y no puede deshacerse.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };

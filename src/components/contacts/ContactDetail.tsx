@@ -1,6 +1,7 @@
 
 import React, { useState } from "react";
 import { useCrm } from "../../context/CrmContext";
+import { useNavigate } from "react-router-dom";
 import TaskBubble from "../tasks/TaskBubble";
 import NewTaskForm from "../tasks/NewTaskForm";
 import AddNoteForm from "./AddNoteForm";
@@ -17,7 +18,8 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
-  MoreVertical
+  MoreVertical,
+  Bot
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
@@ -27,6 +29,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -36,6 +39,7 @@ const ContactDetail: React.FC = () => {
   const { activeContactId, getContactById, getTasksForContact, getNotesForContact, isLoading } = useCrm();
   const [isNotesOpen, setIsNotesOpen] = useState(false);
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
 
   if (isLoading) {
     return (
@@ -84,6 +88,10 @@ const ContactDetail: React.FC = () => {
       .map((n) => n[0])
       .join("")
       .toUpperCase();
+  };
+
+  const handleOpenAIAssistant = () => {
+    navigate(`/ai-assistant?contactId=${activeContactId}`);
   };
 
   return (
@@ -147,6 +155,11 @@ const ContactDetail: React.FC = () => {
                   contact={contact} 
                   trigger={<DropdownMenuItem className="cursor-pointer">Editar contacto</DropdownMenuItem>}
                 />
+                <DropdownMenuItem className="cursor-pointer" onClick={handleOpenAIAssistant}>
+                  <Bot className="h-4 w-4 mr-2" />
+                  Chat con IA
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DeleteContactDialog 
                   contact={contact} 
                   trigger={<DropdownMenuItem className="cursor-pointer text-red-600">Eliminar contacto</DropdownMenuItem>}
@@ -154,6 +167,13 @@ const ContactDetail: React.FC = () => {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+        </div>
+
+        <div className="flex mt-4 gap-2">
+          <Button variant="outline" size="sm" onClick={handleOpenAIAssistant} className="flex-1 sm:flex-none">
+            <Bot className="h-4 w-4 mr-2" />
+            Chat con IA
+          </Button>
         </div>
       </div>
 

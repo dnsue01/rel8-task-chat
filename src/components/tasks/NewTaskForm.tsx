@@ -1,112 +1,214 @@
 
 import React, { useState } from "react";
-import { useCrm } from "../../context/CrmContext";
-import { TaskPriority } from "../../types";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar as CalendarIcon, Send } from "lucide-react";
-import { Calendar } from "@/components/ui/calendar";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
+import { useCrm } from "../../context/CrmContext";
+import { CalendarIcon, Plus } from "lucide-react";
 import { format } from "date-fns";
+import { es } from "date-fns/locale";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
-interface NewTaskFormProps {
-  contactId: string;
+const formSchema = z.object({
+  title: z.string().min(2, "El título debe tener al menos 2 caracteres"),
+  content: z.string().optional(),
+  priority: z.enum(["low", "medium", "high"]),
+  dueDate: z.date().optional()
+});
+
+export interface NewTaskFormProps {
+  contactId?: string;
+  onSuccess?: () => void;
 }
 
-const NewTaskForm: React.FC<NewTaskFormProps> = ({ contactId }) => {
+const NewTaskForm: React.FC<NewTaskFormProps> = ({ contactId, onSuccess }) => {
   const { addTask } = useCrm();
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [priority, setPriority] = useState<TaskPriority>("medium");
-  const [dueDate, setDueDate] = useState<Date | undefined>();
+  const { toast } = useToast();
+  const [showForm, setShowForm] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) return;
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      title: "",
+      content: "",
+      priority: "medium",
+      dueDate: undefined
+    }
+  });
 
+  const onSubmit = (values: z.infer<typeof formSchema>) => {
     addTask({
+      title: values.title,
+      content: values.content || "",
+      priority: values.priority,
+      dueDate: values.dueDate,
       contactId,
-      title,
-      description,
-      status: "waiting",
-      priority,
-      dueDate,
-      completed: false, // Añadimos la propiedad completed requerida
+      completed: false
     });
 
-    // Reset form
-    setTitle("");
-    setDescription("");
-    setPriority("medium");
-    setDueDate(undefined);
+    toast({
+      title: "Tarea creada",
+      description: `La tarea "${values.title}" ha sido añadida correctamente.`
+    });
+
+    form.reset();
+    setShowForm(false);
+    
+    if (onSuccess) {
+      onSuccess();
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm p-4 mt-4">
-      <div className="mb-2">
-        <Input
-          type="text"
-          placeholder="Task title..."
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="w-full"
-        />
-      </div>
-      <div className="mb-4">
-        <Textarea
-          placeholder="Add description (optional)..."
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          className="w-full"
-        />
-      </div>
-      <div className="flex flex-wrap gap-2 justify-between">
-        <div className="flex gap-2">
-          <select
-            value={priority}
-            onChange={(e) => setPriority(e.target.value as TaskPriority)}
-            className="bg-white border rounded-md text-sm px-3 py-2"
-          >
-            <option value="low">Low Priority</option>
-            <option value="medium">Medium Priority</option>
-            <option value="high">High Priority</option>
-          </select>
-
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "w-[210px] justify-start text-left font-normal",
-                  !dueDate && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {dueDate ? format(dueDate, "PPP") : "Set due date..."}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={dueDate}
-                onSelect={setDueDate}
-                initialFocus
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
-
-        <Button type="submit" className="flex gap-2 items-center">
-          <Send size={16} /> Send Task
+    <div className="mt-4">
+      {!showForm ? (
+        <Button 
+          variant="outline" 
+          className="w-full" 
+          onClick={() => setShowForm(true)}
+        >
+          <Plus className="mr-2 h-4 w-4" /> Añadir nueva tarea
         </Button>
-      </div>
-    </form>
+      ) : (
+        <div className="border rounded-lg p-4 bg-card">
+          <h3 className="text-lg font-medium mb-4">Nueva Tarea</h3>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Título</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Título de la tarea" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="content"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descripción</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Descripción de la tarea" 
+                        {...field} 
+                        rows={3}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="priority"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Prioridad</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccionar prioridad" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="low">Baja</SelectItem>
+                          <SelectItem value="medium">Media</SelectItem>
+                          <SelectItem value="high">Alta</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="dueDate"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Fecha límite</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant={"outline"}
+                              className={cn(
+                                "pl-3 text-left font-normal",
+                                !field.value && "text-muted-foreground"
+                              )}
+                            >
+                              {field.value ? (
+                                format(field.value, "PPP", { locale: es })
+                              ) : (
+                                <span>Seleccionar fecha</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            disabled={(date) =>
+                              date < new Date(new Date().setHours(0, 0, 0, 0))
+                            }
+                            initialFocus
+                            className="p-3 pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setShowForm(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit">Guardar tarea</Button>
+              </div>
+            </form>
+          </Form>
+        </div>
+      )}
+    </div>
   );
 };
 

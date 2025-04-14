@@ -1,127 +1,128 @@
 
-import React, { useState } from "react";
+import React from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
 import { useCrm } from "../../context/CrmContext";
-import { Contact } from "../../types";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Plus } from "lucide-react";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage
+} from "@/components/ui/form";
+import { useToast } from "@/components/ui/use-toast";
+
+const formSchema = z.object({
+  name: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
+  email: z.string().email("Debe ser un email válido").or(z.string().length(0)).optional(),
+  phone: z.string().optional(),
+  company: z.string().optional()
+});
 
 interface NewContactFormProps {
-  trigger?: React.ReactNode;
-  isOpen?: boolean;
-  onOpenChange?: (open: boolean) => void;
-  onSuccess?: (contactId: string) => void;
+  onSuccess?: () => void;
 }
 
-const NewContactForm: React.FC<NewContactFormProps> = ({ 
-  trigger, 
-  isOpen, 
-  onOpenChange,
-  onSuccess 
-}) => {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [company, setCompany] = useState("");
-  const [dialogOpen, setDialogOpen] = useState(false);
+const NewContactForm: React.FC<NewContactFormProps> = ({ onSuccess }) => {
   const { addContact } = useCrm();
+  const { toast } = useToast();
 
-  // Use controlled or uncontrolled dialog state
-  const isDialogOpen = isOpen !== undefined ? isOpen : dialogOpen;
-  const setIsDialogOpen = onOpenChange || setDialogOpen;
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      phone: "",
+      company: ""
+    }
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!name || !email) return;
-    
-    const newContact = await addContact({
-      name,
-      email,
-      phone: phone || undefined,
-      company: company || undefined,
-      tags: [],
+  const onSubmit = (values: z.infer<typeof formSchema>) => {
+    const newContact = addContact({
+      name: values.name,
+      email: values.email,
+      phone: values.phone,
+      company: values.company,
+      status: "personal", // Default status
+      tags: []
     });
 
-    // Reset form
-    setName("");
-    setEmail("");
-    setPhone("");
-    setCompany("");
-    setIsDialogOpen(false);
+    toast({
+      title: "Contacto creado",
+      description: `${values.name} ha sido añadido correctamente.`
+    });
+
+    form.reset();
     
-    // Call the onSuccess callback if provided
-    if (onSuccess && newContact) {
-      onSuccess(newContact.id);
+    if (onSuccess) {
+      onSuccess();
     }
   };
 
   return (
-    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-      {trigger && (
-        <DialogTrigger asChild>
-          {trigger}
-        </DialogTrigger>
-      )}
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Añadir nuevo contacto</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4 pt-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Nombre *</Label>
-            <Input 
-              id="name" 
-              value={name} 
-              onChange={(e) => setName(e.target.value)} 
-              placeholder="Nombre del contacto" 
-              required
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="email">Email *</Label>
-            <Input 
-              id="email" 
-              type="email" 
-              value={email} 
-              onChange={(e) => setEmail(e.target.value)} 
-              placeholder="email@ejemplo.com" 
-              required
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="phone">Teléfono</Label>
-            <Input 
-              id="phone" 
-              value={phone} 
-              onChange={(e) => setPhone(e.target.value)} 
-              placeholder="(opcional)" 
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="company">Empresa</Label>
-            <Input 
-              id="company" 
-              value={company} 
-              onChange={(e) => setCompany(e.target.value)} 
-              placeholder="(opcional)" 
-            />
-          </div>
-          
-          <div className="flex justify-end gap-2 pt-4">
-            <DialogClose asChild>
-              <Button type="button" variant="outline">Cancelar</Button>
-            </DialogClose>
-            <Button type="submit">Guardar Contacto</Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Nombre</FormLabel>
+              <FormControl>
+                <Input placeholder="Nombre completo" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Email</FormLabel>
+              <FormControl>
+                <Input type="email" placeholder="ejemplo@correo.com" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="phone"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Teléfono</FormLabel>
+              <FormControl>
+                <Input placeholder="+34 600 000 000" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="company"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Empresa</FormLabel>
+              <FormControl>
+                <Input placeholder="Nombre de la empresa" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <Button type="submit" className="w-full">
+          Crear contacto
+        </Button>
+      </form>
+    </Form>
   );
 };
 

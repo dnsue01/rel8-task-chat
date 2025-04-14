@@ -6,13 +6,19 @@ import ChatInterface from "./ChatInterface";
 import { MessageSquare, Calendar, CheckSquare, Search, FileText } from "lucide-react";
 import { useIntegrations } from '@/context/IntegrationsContext';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useCrm } from '@/context/CrmContext';
 
-const AIAssistantComponent: React.FC = () => {
+interface AIAssistantComponentProps {
+  contactId?: string | null;
+}
+
+const AIAssistantComponent: React.FC<AIAssistantComponentProps> = ({ contactId }) => {
   const [activeTab, setActiveTab] = useState("chat");
   const { calendarEvents, tasks, emails, syncCalendarEvents, syncTasks, syncEmails } = useIntegrations();
   const [selectedPrompt, setSelectedPrompt] = useState<string | null>(null);
   const isMobile = useIsMobile();
   const [chatInterfaceKey, setChatInterfaceKey] = useState<number>(0);
+  const { contacts } = useCrm();
 
   // Templates for the AI assistant
   const [templates, setTemplates] = useState([
@@ -73,13 +79,23 @@ const AIAssistantComponent: React.FC = () => {
     }
   }, [selectedPrompt]);
 
+  const getTitle = () => {
+    if (contactId) {
+      const contact = contacts.find(c => c.id === contactId);
+      if (contact) {
+        return `Asistente IA - Chat con ${contact.name}`;
+      }
+    }
+    return "Asistente IA";
+  };
+
   return (
     <div className="container mx-auto py-3 sm:py-6 px-2 sm:px-4 max-w-6xl">
       <div className="flex items-center mb-3 sm:mb-6">
         <div className="bg-purple-600 text-white p-1.5 sm:p-2 rounded-md mr-2 sm:mr-3">
           <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5" />
         </div>
-        <h1 className="text-lg sm:text-xl md:text-2xl font-bold">Asistente IA</h1>
+        <h1 className="text-lg sm:text-xl md:text-2xl font-bold">{getTitle()}</h1>
       </div>
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -93,6 +109,7 @@ const AIAssistantComponent: React.FC = () => {
             key={chatInterfaceKey} 
             initialPrompt={selectedPrompt} 
             onPromptProcessed={() => setSelectedPrompt(null)}
+            contactId={contactId}
           />
         </TabsContent>
         
