@@ -31,7 +31,6 @@ const ContactSelectionDialog: React.FC<ContactSelectionDialogProps> = ({ isOpen,
     setSearchTerm("");
   };
 
-  // Fix: Create a properly typed onSuccess handler
   const handleNewContactSuccess = (contactId: string) => {
     setActiveContactId(contactId);
     addToRecentContacts(contactId);
