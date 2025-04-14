@@ -798,4 +798,6 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, notes, onLinkNote }) => {
                       ))}
                     </CommandGroup>
                   </CommandList>
-                </Command
+                </Command>
+          </PopoverContent>
+            </Popover>
