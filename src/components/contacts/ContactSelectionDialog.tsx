@@ -118,9 +118,11 @@ const ContactSelectionDialog: React.FC<ContactSelectionDialogProps> = ({ isOpen,
 
       {isImportDialogOpen && (
         <ImportContactsDialog
+          isOpen={isImportDialogOpen}
+          onOpenChange={setIsImportDialogOpen}
           onSuccess={() => {
             setIsImportDialogOpen(false);
-            onOpenChange(false);
+            onOpenChange(false); // opcional: cerrar también el selector si quieres
           }}
         />
       )}
