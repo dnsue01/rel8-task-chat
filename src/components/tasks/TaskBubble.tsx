@@ -59,6 +59,8 @@ const TaskBubble: React.FC<TaskBubbleProps> = ({ task }) => {
     switch (priority) {
       case "high":
         return "bg-red-100 text-red-800 hover:bg-red-200 border-red-200";
+      case "urgent":
+        return "bg-purple-100 text-purple-800 hover:bg-purple-200 border-purple-200";
       case "medium":
         return "bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-200";
       case "low":
@@ -113,15 +115,17 @@ const TaskBubble: React.FC<TaskBubbleProps> = ({ task }) => {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-            {task.content && (
+            {(task.description || task.content) && (
               <p className={`text-sm ${task.completed ? 'text-gray-400' : 'text-gray-600'}`}>
-                {task.content}
+                {task.description || task.content}
               </p>
             )}
             <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mt-2">
               <div className="flex items-center">
                 <Badge className={`${getPriorityColor(task.priority)}`}>
-                  {task.priority === 'high' ? 'Alta' : task.priority === 'medium' ? 'Media' : 'Baja'}
+                  {task.priority === 'high' ? 'Alta' : 
+                   task.priority === 'urgent' ? 'Urgente' : 
+                   task.priority === 'medium' ? 'Media' : 'Baja'}
                 </Badge>
                 
                 {task.completed && (

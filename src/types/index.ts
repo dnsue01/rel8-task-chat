@@ -34,6 +34,7 @@ export interface Task {
   id: string;
   title: string;
   description?: string;
+  content?: string;  // Adding content for backward compatibility
   dueDate?: Date;
   status: TaskStatus;
   priority: TaskPriority;
@@ -45,3 +46,4 @@ export interface Task {
 
 export type TaskStatus = "pending" | "in-progress" | "completed" | "cancelled" | "waiting" | "done" | "overdue";
 export type TaskPriority = "low" | "medium" | "high" | "urgent";
+

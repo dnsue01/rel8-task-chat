@@ -67,7 +67,8 @@ const DeleteContactDialog: React.FC<DeleteContactDialogProps> = ({
           </Button>
         )}
       </AlertDialogTrigger>
-      <AlertDialogContent onPointerDownOutside={(e) => e.preventDefault()}>
+      {/* Remove the onPointerDownOutside prop that's causing the error */}
+      <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
           <AlertDialogDescription>
@@ -76,14 +77,13 @@ const DeleteContactDialog: React.FC<DeleteContactDialogProps> = ({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <Button variant="outline" onClick={handleCancel}>Cancelar</Button>
-          <Button 
-            variant="destructive" 
+          <AlertDialogCancel onClick={handleCancel}>Cancelar</AlertDialogCancel>
+          <AlertDialogAction 
             onClick={handleDelete} 
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
             Eliminar
-          </Button>
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

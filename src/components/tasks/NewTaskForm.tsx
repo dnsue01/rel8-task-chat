@@ -32,8 +32,8 @@ import { useToast } from "@/hooks/use-toast";
 
 const formSchema = z.object({
   title: z.string().min(2, "El título debe tener al menos 2 caracteres"),
-  content: z.string().optional(),
-  priority: z.enum(["low", "medium", "high"]),
+  description: z.string().optional(),
+  priority: z.enum(["low", "medium", "high", "urgent"]),
   dueDate: z.date().optional()
 });
 
@@ -51,7 +51,7 @@ const NewTaskForm: React.FC<NewTaskFormProps> = ({ contactId, onSuccess }) => {
     resolver: zodResolver(formSchema),
     defaultValues: {
       title: "",
-      content: "",
+      description: "",
       priority: "medium",
       dueDate: undefined
     }
@@ -60,11 +60,13 @@ const NewTaskForm: React.FC<NewTaskFormProps> = ({ contactId, onSuccess }) => {
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     addTask({
       title: values.title,
-      content: values.content || "",
+      description: values.description,
+      content: values.description, // For backward compatibility
       priority: values.priority,
       dueDate: values.dueDate,
       contactId,
-      completed: false
+      completed: false,
+      status: "pending" // Add default status
     });
 
     toast({
@@ -110,7 +112,7 @@ const NewTaskForm: React.FC<NewTaskFormProps> = ({ contactId, onSuccess }) => {
               />
               <FormField
                 control={form.control}
-                name="content"
+                name="description"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Descripción</FormLabel>
@@ -145,6 +147,7 @@ const NewTaskForm: React.FC<NewTaskFormProps> = ({ contactId, onSuccess }) => {
                           <SelectItem value="low">Baja</SelectItem>
                           <SelectItem value="medium">Media</SelectItem>
                           <SelectItem value="high">Alta</SelectItem>
+                          <SelectItem value="urgent">Urgente</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />

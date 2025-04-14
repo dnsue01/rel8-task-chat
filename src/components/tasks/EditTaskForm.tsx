@@ -33,8 +33,8 @@ import { useToast } from "@/hooks/use-toast";
 
 const formSchema = z.object({
   title: z.string().min(2, "El título debe tener al menos 2 caracteres"),
-  content: z.string().optional(),
-  priority: z.enum(["low", "medium", "high"]),
+  description: z.string().optional(),
+  priority: z.enum(["low", "medium", "high", "urgent"]),
   dueDate: z.date().optional()
 });
 
@@ -51,7 +51,7 @@ const EditTaskForm: React.FC<EditTaskFormProps> = ({ task, onCancel }) => {
     resolver: zodResolver(formSchema),
     defaultValues: {
       title: task.title,
-      content: task.content || "",
+      description: task.description || task.content || "", // Use either description or content
       priority: task.priority,
       dueDate: task.dueDate
     }
@@ -61,7 +61,8 @@ const EditTaskForm: React.FC<EditTaskFormProps> = ({ task, onCancel }) => {
     updateTask(task.id, {
       ...task,
       title: values.title,
-      content: values.content || "",
+      description: values.description,
+      content: values.description, // For backward compatibility
       priority: values.priority,
       dueDate: values.dueDate
     });
@@ -96,7 +97,7 @@ const EditTaskForm: React.FC<EditTaskFormProps> = ({ task, onCancel }) => {
           />
           <FormField
             control={form.control}
-            name="content"
+            name="description"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Descripción</FormLabel>
@@ -131,6 +132,7 @@ const EditTaskForm: React.FC<EditTaskFormProps> = ({ task, onCancel }) => {
                       <SelectItem value="low">Baja</SelectItem>
                       <SelectItem value="medium">Media</SelectItem>
                       <SelectItem value="high">Alta</SelectItem>
+                      <SelectItem value="urgent">Urgente</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
