@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { useCrm } from "../../context/CrmContext";
 import TaskBubble from "../tasks/TaskBubble";
 import NewTaskForm from "../tasks/NewTaskForm";
@@ -7,20 +7,34 @@ import AddNoteForm from "./AddNoteForm";
 import EditContactDialog from "./EditContactDialog";
 import DeleteContactDialog from "./DeleteContactDialog";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Phone, Mail, Building2, Tag, MessageSquare, FileText, Loader2 } from "lucide-react";
+import { 
+  Phone, 
+  Mail, 
+  Building2, 
+  Tag, 
+  MessageSquare, 
+  FileText, 
+  Loader2,
+  ChevronDown,
+  ChevronUp,
+  MoreVertical
+} from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 const ContactDetail: React.FC = () => {
   const { activeContactId, getContactById, getTasksForContact, getNotesForContact, isLoading } = useCrm();
+  const [isNotesOpen, setIsNotesOpen] = useState(false);
   const isMobile = useIsMobile();
 
   if (isLoading) {
@@ -72,57 +86,19 @@ const ContactDetail: React.FC = () => {
       .toUpperCase();
   };
 
-  const getStatusBadge = () => {
-    switch (contact.status) {
-      case "client":
-        return <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded">Cliente</span>;
-      case "lead":
-        return <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded">Lead</span>;
-      case "collaborator":
-        return <span className="bg-purple-100 text-purple-800 text-xs px-2 py-0.5 rounded">Colaborador</span>;
-      case "personal":
-        return <span className="bg-gray-100 text-gray-800 text-xs px-2 py-0.5 rounded">Personal</span>;
-      default:
-        return null;
-    }
-  };
-
   return (
     <div className="h-full flex flex-col">
       {/* Contact Header */}
       <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center">
-            <ContextMenu>
-              <ContextMenuTrigger className="cursor-pointer">
-                <Avatar className="h-14 w-14 sm:h-16 sm:w-16 mr-3 sm:mr-4">
-                  <AvatarImage src={contact.avatar} />
-                  <AvatarFallback>{getInitials(contact.name)}</AvatarFallback>
-                </Avatar>
-              </ContextMenuTrigger>
-              <ContextMenuContent className="w-48">
-                <EditContactDialog
-                  contact={contact}
-                  trigger={
-                    <ContextMenuItem className="cursor-pointer">
-                      Editar contacto
-                    </ContextMenuItem>
-                  }
-                />
-                <DeleteContactDialog
-                  contact={contact}
-                  trigger={
-                    <ContextMenuItem className="cursor-pointer text-red-600">
-                      Eliminar contacto
-                    </ContextMenuItem>
-                  }
-                />
-              </ContextMenuContent>
-            </ContextMenu>
+            <Avatar className="h-14 w-14 sm:h-16 sm:w-16 mr-3 sm:mr-4">
+              <AvatarImage src={contact.avatar} />
+              <AvatarFallback>{getInitials(contact.name)}</AvatarFallback>
+            </Avatar>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{contact.name}</h1>
-                {getStatusBadge()}
               </div>
               <p className="text-gray-500 text-sm sm:text-base">
                 {contact.lastActivity && 
@@ -157,10 +133,26 @@ const ContactDetail: React.FC = () => {
               )}
             </div>
           </div>
-          {/* Only show action buttons on desktop or in a more compact way on mobile */}
-          <div className={`flex items-start space-x-2 ${isMobile ? 'flex-col space-x-0 space-y-2' : ''}`}>
-            <EditContactDialog contact={contact} />
-            <DeleteContactDialog contact={contact} />
+          
+          {/* Contact actions in dropdown menu */}
+          <div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <EditContactDialog 
+                  contact={contact} 
+                  trigger={<DropdownMenuItem className="cursor-pointer">Editar contacto</DropdownMenuItem>}
+                />
+                <DeleteContactDialog 
+                  contact={contact} 
+                  trigger={<DropdownMenuItem className="cursor-pointer text-red-600">Eliminar contacto</DropdownMenuItem>}
+                />
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
@@ -190,26 +182,34 @@ const ContactDetail: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="notes" className="flex-1 overflow-auto">
-          {/* Notes List */}
-          <div className="space-y-4">
-            {notes.length > 0 ? (
-              notes.map((note) => (
-                <div key={note.id} className="bg-yellow-50 p-4 rounded-lg">
-                  <p className="text-gray-800">{note.content}</p>
-                  <p className="text-xs text-gray-500 mt-2">
-                    {formatDistanceToNow(note.createdAt, { addSuffix: true, locale: es })}
-                  </p>
+          {/* Notes List - Now Collapsible */}
+          <Collapsible open={isNotesOpen} onOpenChange={setIsNotesOpen} className="mb-4">
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" className="flex w-full justify-between mb-2">
+                <span>Notas ({notes.length})</span>
+                {isNotesOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-4">
+              {notes.length > 0 ? (
+                notes.map((note) => (
+                  <div key={note.id} className="bg-yellow-50 p-4 rounded-lg">
+                    <p className="text-gray-800">{note.content}</p>
+                    <p className="text-xs text-gray-500 mt-2">
+                      {formatDistanceToNow(note.createdAt, { addSuffix: true, locale: es })}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <div className="bg-gray-50 p-6 text-center rounded-lg">
+                  <FileText className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                  <p className="text-gray-500">No hay notas todavía</p>
                 </div>
-              ))
-            ) : (
-              <div className="bg-gray-50 p-6 text-center rounded-lg">
-                <FileText className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-                <p className="text-gray-500">No hay notas todavía</p>
-              </div>
-            )}
-            
-            <AddNoteForm contactId={activeContactId} />
-          </div>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
+          
+          <AddNoteForm contactId={activeContactId} />
         </TabsContent>
       </Tabs>
     </div>

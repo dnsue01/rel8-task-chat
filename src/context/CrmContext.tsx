@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { sampleContacts, sampleTasks, sampleNotes } from "../data/sampleData";
 import { Contact, Task, Note, User, TaskStatus } from "../types";
@@ -35,6 +35,9 @@ type CrmContextType = {
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   updateUser: (user: User) => void;
+  
+  recentContacts: Contact[];
+  addToRecentContacts: (contactId: string) => void;
 };
 
 const CrmContext = createContext<CrmContextType | undefined>(undefined);
@@ -79,6 +82,7 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [recentContacts, setRecentContacts] = useState<Contact[]>([]);
 
   useEffect(() => {
     const userData = localStorage.getItem('crm_user');
@@ -289,6 +293,16 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const addToRecentContacts = useCallback((contactId: string) => {
+    const contact = contacts.find(c => c.id === contactId);
+    if (!contact) return;
+    
+    setRecentContacts(prev => {
+      const filteredContacts = prev.filter(c => c.id !== contactId);
+      return [contact, ...filteredContacts].slice(0, 20);
+    });
+  }, [contacts]);
+
   useEffect(() => {
     if (isAuthenticated && !isLoading && currentUser) {
       saveUserData();
@@ -490,7 +504,9 @@ export const CrmProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loginWithGoogle,
     register,
     logout,
-    updateUser
+    updateUser,
+    recentContacts,
+    addToRecentContacts
   };
 
   return <CrmContext.Provider value={value}>{children}</CrmContext.Provider>;

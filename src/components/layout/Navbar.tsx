@@ -1,17 +1,17 @@
 
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   User,
   LogOut,
   Calendar,
   Mail,
-  Home,
   Settings,
   MessageSquare,
   Menu,
-  X
+  X,
+  CheckSquare
 } from "lucide-react";
 import { useCrm } from "../../context/CrmContext";
 import { useIntegrations } from "../../context/IntegrationsContext";
@@ -32,6 +32,7 @@ interface NavbarProps {
 
 const Navbar: React.FC<NavbarProps> = ({ currentUser }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { logout } = useCrm();
   const { isGoogleConnected, syncState } = useIntegrations();
   const isMobile = useIsMobile();
@@ -52,17 +53,20 @@ const Navbar: React.FC<NavbarProps> = ({ currentUser }) => {
 
   const NavItems = () => (
     <>
-      <Button
-        variant="ghost"
-        size={isMobile ? "sm" : "sm"}
-        onClick={() => {
-          navigate("/");
-          if (isMobile) setMobileMenuOpen(false);
-        }}
-        className="font-medium hover:bg-primary/10 w-full justify-start md:w-auto"
-      >
-        <Home className="h-4 w-4 mr-1" /> Inicio
-      </Button>
+      {/* Only show the home button on the landing page */}
+      {location.pathname === "/" && (
+        <Button
+          variant="ghost"
+          size={isMobile ? "sm" : "sm"}
+          onClick={() => {
+            navigate("/");
+            if (isMobile) setMobileMenuOpen(false);
+          }}
+          className="font-medium hover:bg-primary/10 w-full justify-start md:w-auto"
+        >
+          <MessageSquare className="h-4 w-4 mr-1" /> Inicio
+        </Button>
+      )}
 
       <Button
         variant="ghost"
@@ -74,6 +78,18 @@ const Navbar: React.FC<NavbarProps> = ({ currentUser }) => {
         className="font-medium hover:bg-primary/10 w-full justify-start md:w-auto"
       >
         <User className="h-4 w-4 mr-1" /> Contactos
+      </Button>
+      
+      <Button
+        variant="ghost"
+        size={isMobile ? "sm" : "sm"}
+        onClick={() => {
+          navigate("/tasks");
+          if (isMobile) setMobileMenuOpen(false);
+        }}
+        className="font-medium hover:bg-primary/10 w-full justify-start md:w-auto"
+      >
+        <CheckSquare className="h-4 w-4 mr-1" /> Tareas
       </Button>
 
       <Button

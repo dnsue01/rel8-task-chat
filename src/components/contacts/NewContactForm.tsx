@@ -1,39 +1,47 @@
 
 import React, { useState } from "react";
 import { useCrm } from "../../context/CrmContext";
-import { Contact, ContactStatus } from "../../types";
+import { Contact } from "../../types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Plus } from "lucide-react";
 
 interface NewContactFormProps {
   trigger?: React.ReactNode;
-  onSuccess?: () => void;
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  onSuccess?: (contactId: string) => void;
 }
 
-const NewContactForm: React.FC<NewContactFormProps> = ({ trigger, onSuccess }) => {
+const NewContactForm: React.FC<NewContactFormProps> = ({ 
+  trigger, 
+  isOpen, 
+  onOpenChange,
+  onSuccess 
+}) => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [company, setCompany] = useState("");
-  const [status, setStatus] = useState<ContactStatus>("lead");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const { addContact } = useCrm();
+
+  // Use controlled or uncontrolled dialog state
+  const isDialogOpen = isOpen !== undefined ? isOpen : dialogOpen;
+  const setIsDialogOpen = onOpenChange || setDialogOpen;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!name || !email) return;
     
-    await addContact({
+    const newContact = await addContact({
       name,
       email,
       phone: phone || undefined,
       company: company || undefined,
-      status,
       tags: [],
     });
 
@@ -42,24 +50,21 @@ const NewContactForm: React.FC<NewContactFormProps> = ({ trigger, onSuccess }) =
     setEmail("");
     setPhone("");
     setCompany("");
-    setStatus("lead");
     setIsDialogOpen(false);
     
     // Call the onSuccess callback if provided
-    if (onSuccess) {
-      onSuccess();
+    if (onSuccess && newContact) {
+      onSuccess(newContact.id);
     }
   };
 
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-      <DialogTrigger asChild>
-        {trigger || (
-          <Button className="w-full flex items-center justify-center gap-2">
-            <Plus size={16} /> Añadir Contacto
-          </Button>
-        )}
-      </DialogTrigger>
+      {trigger && (
+        <DialogTrigger asChild>
+          {trigger}
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Añadir nuevo contacto</DialogTitle>
@@ -106,28 +111,6 @@ const NewContactForm: React.FC<NewContactFormProps> = ({ trigger, onSuccess }) =
               onChange={(e) => setCompany(e.target.value)} 
               placeholder="(opcional)" 
             />
-          </div>
-          
-          <div className="space-y-2">
-            <Label>Estado</Label>
-            <RadioGroup value={status} onValueChange={(value) => setStatus(value as ContactStatus)}>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="lead" id="lead" />
-                <Label htmlFor="lead">Lead</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="client" id="client" />
-                <Label htmlFor="client">Cliente</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="collaborator" id="collaborator" />
-                <Label htmlFor="collaborator">Colaborador</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="personal" id="personal" />
-                <Label htmlFor="personal">Personal</Label>
-              </div>
-            </RadioGroup>
           </div>
           
           <div className="flex justify-end gap-2 pt-4">

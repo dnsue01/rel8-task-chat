@@ -1,239 +1,149 @@
 
 import React, { useState } from "react";
 import { Task } from "../../types";
-import { formatDistanceToNow, isPast, isToday } from "date-fns";
-import { Check, Clock, Calendar, Edit, Trash, AlertCircle } from "lucide-react";
 import { useCrm } from "../../context/CrmContext";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Clock, Calendar, Flag, Pencil, Trash } from "lucide-react";
+import { formatDistanceToNow, format } from "date-fns";
+import { es } from "date-fns/locale";
 import EditTaskForm from "./EditTaskForm";
-import { 
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { toast } from "@/components/ui/use-toast";
 
 interface TaskBubbleProps {
   task: Task;
 }
 
 const TaskBubble: React.FC<TaskBubbleProps> = ({ task }) => {
-  const { completeTask, reopenTask, deleteTask } = useCrm();
-  const [showEditDialog, setShowEditDialog] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const { updateTask, deleteTask } = useCrm();
+  const [isEditing, setIsEditing] = useState(false);
 
-  const getBubbleClass = () => {
-    switch (task.status) {
-      case "pending":
-      case "waiting":
-        return "task-bubble-waiting";
-      case "in-progress":
-        return "task-bubble-in-progress";
-      case "completed":
-      case "done":
-        return "task-bubble-done";
-      case "cancelled":
-      case "overdue":
-        return "task-bubble-overdue";
-      default:
-        return "task-bubble-waiting";
+  const handleToggleComplete = async () => {
+    try {
+      await updateTask({
+        ...task,
+        completed: !task.completed,
+        completedAt: !task.completed ? new Date() : undefined,
+      });
+      toast.success(
+        task.completed ? "Tarea marcada como pendiente" : "Tarea completada"
+      );
+    } catch (error) {
+      toast.error("Error al actualizar la tarea");
     }
   };
 
-  const getStatusText = () => {
-    switch (task.status) {
-      case "pending":
-      case "waiting":
-        return "Waiting";
-      case "in-progress":
-        return "In Progress";
-      case "completed":
-      case "done":
-        return "Completed";
-      case "cancelled":
-      case "overdue":
-        return "Overdue";
-      default:
-        return "Unknown";
+  const handleDelete = async () => {
+    try {
+      await deleteTask(task.id);
+      toast.success("Tarea eliminada");
+    } catch (error) {
+      toast.error("Error al eliminar la tarea");
     }
   };
 
-  const getPriorityBadge = () => {
+  const getPriorityColor = () => {
     switch (task.priority) {
       case "high":
-        return <span className="bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded">High</span>;
+        return "text-red-600";
       case "medium":
-        return <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-0.5 rounded">Medium</span>;
+        return "text-amber-500";
       case "low":
-        return <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded">Low</span>;
+        return "text-green-600";
       default:
-        return null;
-    }
-  };
-
-  const handleStatusChange = (newStatus: Task["status"]) => {
-    if (newStatus === "completed" || newStatus === "done") {
-      completeTask(task.id);
-      toast({
-        title: "Task completed",
-        description: "The task has been marked as completed.",
-      });
-    } else {
-      reopenTask(task.id);
-      toast({
-        title: "Task reopened",
-        description: "The task has been reopened.",
-      });
-    }
-  };
-
-  const handleDelete = () => {
-    deleteTask(task.id);
-    setShowDeleteDialog(false);
-    toast({
-      title: "Task deleted",
-      description: "The task has been permanently deleted.",
-      variant: "destructive",
-    });
-  };
-
-  const formatTaskDate = (date?: Date) => {
-    if (!date) return null;
-
-    if (isToday(date)) {
-      return "Today";
-    } else if (isPast(date) && task.status !== "completed" && task.status !== "done") {
-      return `Overdue: ${formatDistanceToNow(date, { addSuffix: true })}`;
-    } else {
-      return formatDistanceToNow(date, { addSuffix: true });
+        return "text-gray-600";
     }
   };
 
   return (
     <>
-      <div className={`task-bubble ${getBubbleClass()}`}>
-        <div className="flex justify-between items-start mb-2">
-          <h3 className="font-medium">{task.title}</h3>
-          {getPriorityBadge()}
-        </div>
-        
-        {task.description && <p className="text-sm text-gray-600 mb-3">{task.description}</p>}
-        
-        <div className="flex flex-wrap items-center text-xs text-gray-500 mb-3 gap-2">
-          <span className="flex items-center">
-            <Clock size={14} className="mr-1" /> Created {formatDistanceToNow(task.createdAt, { addSuffix: true })}
-          </span>
-          
-          {task.dueDate && (
-            <span className="flex items-center">
-              <Calendar size={14} className="mr-1" /> Due {formatTaskDate(task.dueDate)}
-            </span>
-          )}
+      {isEditing ? (
+        <EditTaskForm task={task} onCancel={() => setIsEditing(false)} />
+      ) : (
+        <div className="bg-white border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-start gap-3">
+            <Checkbox
+              checked={task.completed}
+              onCheckedChange={handleToggleComplete}
+              className="mt-1"
+            />
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <h3
+                  className={`font-medium ${
+                    task.completed ? "line-through text-gray-400" : ""
+                  }`}
+                >
+                  {task.title}
+                </h3>
+                
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Status badge - show only if completed */}
+                  {task.completed && (
+                    <span className="bg-green-100 text-green-800 text-xs py-0.5 px-2 rounded-full">
+                      Completada
+                    </span>
+                  )}
+                  
+                  {/* Priority flag - separate from status */}
+                  {task.priority && (
+                    <div className="flex items-center">
+                      <Flag className={`h-3.5 w-3.5 ${getPriorityColor()}`} />
+                      <span className={`text-xs ${getPriorityColor()} ml-1`}>
+                        {task.priority === "high" && "Alta"}
+                        {task.priority === "medium" && "Media"}
+                        {task.priority === "low" && "Baja"}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
 
-          {task.completedAt && (
-            <span className="flex items-center">
-              <Check size={14} className="mr-1" /> Completed {formatDistanceToNow(task.completedAt, { addSuffix: true })}
-            </span>
-          )}
-        </div>
-        
-        <div className="flex flex-wrap gap-2">
-          {(task.status !== "completed" && task.status !== "done") && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="text-xs" 
-              onClick={() => handleStatusChange("completed")}
-            >
-              <Check size={14} className="mr-1" /> Mark Done
-            </Button>
-          )}
-          
-          {(task.status === "completed" || task.status === "done") && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="text-xs" 
-              onClick={() => handleStatusChange("in-progress")}
-            >
-              <Clock size={14} className="mr-1" /> Reopen
-            </Button>
-          )}
-          
-          {(task.status === "pending" || task.status === "waiting") && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="text-xs" 
-              onClick={() => handleStatusChange("in-progress")}
-            >
-              <Clock size={14} className="mr-1" /> Start
-            </Button>
-          )}
-          
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="text-xs"
-            onClick={() => setShowEditDialog(true)}
-          >
-            <Edit size={14} className="mr-1" /> Edit
-          </Button>
-          
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="text-xs text-red-500"
-            onClick={() => setShowDeleteDialog(true)}
-          >
-            <Trash size={14} className="mr-1" /> Delete
-          </Button>
-        </div>
-        
-        <div className="absolute top-2 right-2 text-xs px-2 py-1 rounded-full bg-white/80 flex items-center">
-          <AlertCircle size={12} className="mr-1" /> {getStatusText()}
-        </div>
-      </div>
+              {task.description && (
+                <p className="text-gray-600 text-sm mt-1 mb-2">{task.description}</p>
+              )}
 
-      {/* Edit Task Dialog */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Task</DialogTitle>
-          </DialogHeader>
-          <EditTaskForm task={task} onClose={() => setShowEditDialog(false)} />
-        </DialogContent>
-      </Dialog>
+              <div className="flex items-center gap-3 mt-1 mb-2 flex-wrap">
+                {task.dueDate && (
+                  <span className="flex items-center text-xs text-gray-500">
+                    <Calendar className="h-3 w-3 mr-1" />
+                    {format(task.dueDate, "d MMM yyyy", { locale: es })}
+                  </span>
+                )}
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete the task "{task.title}". 
-              This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+                <span className="flex items-center text-xs text-gray-500">
+                  <Clock className="h-3 w-3 mr-1" />
+                  {formatDistanceToNow(task.createdAt, {
+                    addSuffix: true,
+                    locale: es,
+                  })}
+                </span>
+              </div>
+
+              <div className="flex justify-end gap-2 mt-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditing(true)}
+                  className="h-8 px-2"
+                >
+                  <Pencil className="h-3.5 w-3.5 mr-1" />
+                  <span className="text-xs">Editar</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDelete}
+                  className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                >
+                  <Trash className="h-3.5 w-3.5 mr-1" />
+                  <span className="text-xs">Eliminar</span>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

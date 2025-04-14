@@ -13,7 +13,7 @@ import { useIntegrations } from "../context/IntegrationsContext";
 import { useEffect } from "react";
 import { useToast } from "@/components/ui/use-toast";
 
-// Componente de carga
+// Loading component
 const LoadingState = () => (
   <div className="h-full flex items-center justify-center">
     <div className="text-center">

@@ -10,6 +10,7 @@ import { IntegrationsProvider } from "./context/IntegrationsContext";
 import IntegrationsPage from "./pages/IntegrationsPage";
 import Settings from "./pages/Settings";
 import AIAssistant from "./pages/AIAssistant";
+import TasksPage from "./pages/TasksPage";
 
 // Protected route component to ensure authentication
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -42,6 +43,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <CrmApp />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/tasks" 
+              element={
+                <ProtectedRoute>
+                  <TasksPage />
                 </ProtectedRoute>
               } 
             />
